@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <!-- Hero Character (Young & Cool) -->
+    <!-- Head & Hair -->
+    <path d="M30 35 L40 20 L55 25 L70 20 L80 35 L55 45 Z" fill="#5D4037" /> <!-- Hair Back -->
+    <circle cx="55" cy="45" r="18" fill="#FFCCBC" /> <!-- Face -->
+    <path d="M35 30 L55 15 L75 30 L65 40 L55 35 L45 40 Z" fill="#795548" /> <!-- Spiky Hair Front -->
+    
+    <!-- Eyes -->
+    <circle cx="48" cy="45" r="2.5" fill="#212121" />
+    <circle cx="62" cy="45" r="2.5" fill="#212121" />
+    <path d="M50 53 Q55 58 60 53" fill="none" stroke="#212121" stroke-width="1.5" stroke-linecap="round" /> <!-- Smile -->
+
+    <!-- Body / Armor -->
+    <rect x="40" y="60" width="30" height="25" rx="5" fill="#1976D2" /> <!-- Blue Tunic -->
+    <path d="M40 60 L70 60 L65 80 L45 80 Z" fill="#1E88E5" />
+    <rect x="40" y="65" width="30" height="5" fill="#FFC107" /> <!-- Gold Trim -->
+    
+    <!-- Cape -->
+    <path d="M35 60 Q25 75 35 90 L55 90 L75 90 Q85 75 75 60" fill="#D32F2F" /> <!-- Red Cape -->
+
+    <!-- Arms & Hands -->
+    <rect x="32" y="65" width="8" height="15" rx="4" fill="#FFCCBC" /> <!-- Left Arm -->
+    <rect x="70" y="65" width="8" height="15" rx="4" fill="#FFCCBC" /> <!-- Right Arm -->
+
+    <!-- Sword (Right Hand) -->
+    <rect x="73" y="45" width="4" height="25" fill="#BDBDBD" /> <!-- Blade -->
+    <rect x="71" y="70" width="8" height="3" fill="#5D4037" /> <!-- Guard -->
+    <rect x="73" y="73" width="4" height="6" fill="#3E2723" /> <!-- Hilt -->
+
+    <!-- Shield (Left Hand) -->
+    <path d="M25 65 Q25 85 40 90 Q55 85 55 65 Z" fill="#FFC107" stroke="#FFA000" stroke-width="2" /> <!-- Golden Shield -->
+    <path d="M35 70 L45 70 L40 80 Z" fill="#FFCCBC" /> <!-- Simple Crest -->
+
+    <!-- Legs -->
+    <rect x="45" y="85" width="8" height="10" fill="#1565C0" />
+    <rect x="57" y="85" width="8" height="10" fill="#1565C0" />
+    <rect x="43" y="92" width="10" height="5" rx="2" fill="#37474F" /> <!-- Boot L -->
+    <rect x="57" y="92" width="10" height="5" rx="2" fill="#37474F" /> <!-- Boot R -->
+</svg>

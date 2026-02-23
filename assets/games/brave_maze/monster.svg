@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <!-- Cute Grumpy Monster (Green Goblin) -->
+    <!-- Ears -->
+    <path d="M30 40 L15 30 L25 50 Z" fill="#66BB6A" />
+    <path d="M70 40 L85 30 L75 50 Z" fill="#66BB6A" />
+
+    <!-- Head -->
+    <ellipse cx="50" cy="45" r="22" ry="20" fill="#81C784" />
+    
+    <!-- Horns -->
+    <path d="M40 28 L35 15 L45 25 Z" fill="#BDBDBD" />
+    <path d="M60 28 L65 15 L55 25 Z" fill="#BDBDBD" />
+
+    <!-- Eyes -->
+    <circle cx="40" cy="42" r="5" fill="white" />
+    <circle cx="60" cy="42" r="5" fill="white" />
+    <circle cx="42" cy="42" r="2" fill="black" />
+    <circle cx="58" cy="42" r="2" fill="black" />
+    
+    <!-- Brows (Grumpy) -->
+    <path d="M35 35 L45 38" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" />
+    <path d="M65 35 L55 38" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Mouth & Tooth -->
+    <path d="M45 55 Q50 52 55 55" fill="none" stroke="#2E7D32" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M48 54 L50 58 L52 54 Z" fill="white" /> <!-- One Tooth -->
+
+    <!-- Body -->
+    <rect x="35" y="65" width="30" height="20" rx="8" fill="#81C784" />
+    <rect x="35" y="75" width="30" height="12" fill="#8D6E63" /> <!-- Brown Shorts -->
+
+    <!-- Arms & Club -->
+    <rect x="25" y="70" width="8" height="15" rx="4" fill="#81C784" />
+    <rect x="67" y="70" width="8" height="15" rx="4" fill="#81C784" transform="rotate(-20 70 75)" />
+    
+    <!-- Club -->
+    <path d="M75 55 L85 55 L82 85 L78 85 Z" fill="#5D4037" transform="rotate(-15 80 70)" />
+    <circle cx="78" cy="60" r="1.5" fill="#3E2723" transform="rotate(-15 80 70)" />
+    <circle cx="82" cy="70" r="1.5" fill="#3E2723" transform="rotate(-15 80 70)" />
+
+    <!-- Legs -->
+    <rect x="40" y="85" width="8" height="10" fill="#81C784" />
+    <rect x="52" y="85" width="8" height="10" fill="#81C784" />
+</svg>

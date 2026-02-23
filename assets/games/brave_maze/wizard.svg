@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <!-- Cute Girl Wizard Character -->
+    <!-- Hair back -->
+    <path d="M25 40 Q25 80 50 90 Q75 80 75 40" fill="#5D4037" />
+
+    <!-- Face -->
+    <circle cx="50" cy="45" r="18" fill="#FFE0B2" />
+    <path d="M35 35 Q50 25 65 35" fill="#795548" /> <!-- Bangs -->
+
+    <!-- Eyes -->
+    <circle cx="43" cy="45" r="2.5" fill="#212121" />
+    <circle cx="57" cy="45" r="2.5" fill="#212121" />
+    <path d="M46 53 Q50 56 54 53" fill="none" stroke="#212121" stroke-width="1.2" stroke-linecap="round" /> <!-- Small Smile -->
+    <circle cx="38" cy="48" r="2" fill="#FFAB91" fill-opacity="0.5" /> <!-- Blush -->
+    <circle cx="62" cy="48" r="2" fill="#FFAB91" fill-opacity="0.5" />
+
+    <!-- Wizard Hat -->
+    <path d="M20 35 Q50 28 80 35 L85 42 L15 42 Z" fill="#7B1FA2" /> <!-- Brim -->
+    <path d="M30 35 L50 5 L70 35 Z" fill="#9C27B0" /> <!-- Top -->
+    <path d="M45 20 L55 20 L50 28 Z" fill="#FFEB3B" /> <!-- Star Decoration -->
+
+    <!-- Robe -->
+    <path d="M35 60 L65 60 L75 90 L25 90 Z" fill="#9C27B0" /> <!-- Robe Main -->
+    <path d="M40 60 L60 60 L50 85 Z" fill="#BA68C8" /> <!-- Inner Detail -->
+
+    <!-- Wand -->
+    <rect x="70" y="55" width="3" height="25" transform="rotate(-20 70 55)" fill="#5D4037" /> <!-- Staff -->
+    <circle cx="78" cy="50" r="5" fill="#81D4FA" fill-opacity="0.8">
+        <animate attributeName="fill-opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite" />
+    </circle> <!-- Glowing Orb -->
+
+    <!-- Arms -->
+    <rect x="30" y="65" width="8" height="12" rx="4" fill="#FFE0B2" transform="rotate(10 30 65)" />
+    <rect x="62" y="65" width="8" height="12" rx="4" fill="#FFE0B2" transform="rotate(-10 65 65)" />
+</svg>

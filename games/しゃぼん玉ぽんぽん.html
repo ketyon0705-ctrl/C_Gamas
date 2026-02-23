@@ -123,13 +123,40 @@
 
 <body class="h-screen w-screen m-0 p-0">
 
-    <!-- Back Button -->
-    <a href="./../index.html"
-        class="fixed top-[36px] left-[26px] z-[100] bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full shadow-lg border-2 border-white/20 pointer-events-auto flex items-center gap-2 transition-transform active:scale-95 backdrop-blur-sm">
-        <span class="text-2xl">🏠</span> もどる
-    </a>
-
+    <!-- Base UI (Container for overlap) -->
     <div id="game-container" class="relative w-full h-full overflow-hidden">
+
+        <!-- Global Back Button (iPhone Optimized) -->
+        <div id="global-back-ui"
+            class="fixed top-0 left-0 w-full z-[110] px-4 pt-[calc(env(safe-area-inset-top)+10px)] pointer-events-none">
+            <div class="max-w-lg mx-auto flex justify-start">
+                <a href="./../index.html"
+                    class="bg-white/40 backdrop-blur-md p-2 rounded-xl border border-white/30 shadow-lg pointer-events-auto active:scale-95 transition-all text-xl">🏠</a>
+            </div>
+        </div>
+
+        <!-- Re-styled Header (iPhone Optimized - Game Only Info) -->
+        <div id="game-ui"
+            class="hidden fixed top-0 left-0 w-full z-[100] px-4 pt-[calc(env(safe-area-inset-top)+10px)] pointer-events-none">
+            <div class="flex items-center justify-end w-full max-w-lg mx-auto pointer-events-none">
+                <div
+                    class="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl p-2 border border-white/30 shadow-lg pointer-events-auto">
+                    <div class="flex flex-col items-center px-3 border-r border-blue-200/50">
+                        <span id="current-player-display"
+                            class="text-[10px] font-bold text-blue-600 truncate max-w-[60px]">PLAYER</span>
+                        <span id="timer-display" class="text-xl font-black text-blue-600 leading-none">30</span>
+                    </div>
+                    <div class="flex flex-col items-center px-3">
+                        <span class="text-[10px] font-bold text-pink-600">SCORE</span>
+                        <span id="score-display" class="text-xl font-black text-pink-500 leading-none">0</span>
+                    </div>
+                </div>
+
+                <div id="bonus-toast"
+                    class="opacity-0 absolute right-4 top-full mt-2 transition-all duration-300 transform translate-y-2 pointer-events-none bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg">
+                    +1s</div>
+            </div>
+        </div>
         <!-- 1. Select Number of Players -->
         <div id="mode-screen"
             class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-white bg-opacity-80 p-6 text-center">
@@ -162,22 +189,12 @@
                     class="btn-fancy py-8 px-20 text-4xl bg-pink-500 hover:bg-pink-600 text-white shadow-xl">スタート！</button>
         </div>
 
-        <!-- 4. Game UI -->
-        <div id="game-ui"
-            class="hidden absolute top-0 left-0 w-full pt-[36px] pr-[26px] flex justify-end items-start pointer-events-none z-40 gap-4">
-            <div class="flex flex-col gap-2">
-                <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-2 border-2 border-blue-300">
-                    <p id="current-player-display" class="text-xs text-blue-600 font-bold">なまえ</p>
-                </div>
-                <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-3 shadow-md border-2 border-blue-300">
-                    <p class="text-sm text-blue-600 font-bold">てんすう</p>
-                    <p id="score-display" class="text-3xl font-black text-pink-500">0</p>
-                </div>
-            </div>
-            <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-3 shadow-md border-2 border-blue-300">
-                <p class="text-sm text-blue-600 font-bold">のこりじかん</p>
-                <p id="timer-display" class="text-3xl font-black text-blue-600">30</p>
-            </div>
+        <!-- Big Time Over Message -->
+        <div id="time-over-overlay"
+            class="hidden absolute inset-0 flex items-center justify-center z-[200] pointer-events-none">
+            <h2
+                class="text-6xl font-black text-pink-500 italic drop-shadow-[0_5px_15px_rgba(0,0,0,0.2)] transform -rotate-12 scale-150 animate-bounce">
+                じかんぎれ！</h2>
         </div>
 
         <!-- 5. Turn Result Screen -->
@@ -264,17 +281,19 @@
             scoreDisplay.textContent = score;
             timerDisplay.textContent = timeLeft;
             document.getElementById('current-player-display').textContent = players[currentPlayerIndex].name;
+            document.getElementById('time-over-overlay').classList.add('hidden');
 
             readyScreen.classList.add('hidden');
             gameUI.classList.remove('hidden');
             gameActive = true;
 
-            gameContainer.innerHTML = ''; // Clear previous bubbles
+            const existingBubbles = gameContainer.querySelectorAll('.bubble');
+            existingBubbles.forEach(b => b.remove());
 
             // Spawn bubbles
             spawnInterval = setInterval(() => {
                 if (gameActive) createBubble();
-            }, 600);
+            }, 550);
 
             // Timer
             timerInterval = setInterval(() => {
@@ -283,12 +302,29 @@
                     return;
                 }
                 timeLeft--;
-                timerDisplay.textContent = timeLeft;
+                timerDisplay.textContent = Math.max(0, timeLeft);
+
+                if (timeLeft <= 5) {
+                    timerDisplay.classList.add('text-red-500', 'animate-pulse');
+                } else {
+                    timerDisplay.classList.remove('text-red-500', 'animate-pulse');
+                }
+
                 if (timeLeft <= 0) {
-                    endGame();
+                    showTimeOver();
                 }
             }, 1000);
         };
+
+        function showTimeOver() {
+            gameActive = false;
+            document.getElementById('time-over-overlay').classList.remove('hidden');
+            if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+
+            setTimeout(() => {
+                endGame();
+            }, 1500);
+        }
 
         function createBubble() {
             const bubble = document.createElement('div');
@@ -304,8 +340,10 @@
             bubble.style.animationDuration = `${duration}s`;
             bubble.style.borderColor = `hsla(${colorIndex}, 70%, 70%, 0.6)`;
 
-            if (Math.random() > 0.7) {
+            const isBonus = Math.random() > 0.7;
+            if (isBonus) {
                 bubble.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                bubble.dataset.bonus = "true";
             }
 
             const popHandler = (e) => {
@@ -330,12 +368,19 @@
             if (element.dataset.popped) return;
             element.dataset.popped = "true";
 
-            // Instant visual kill: stop rendering immediately
+            const bonusItem = element.dataset.bonus === "true";
+
+            // Instant visual kill
             element.style.display = 'none';
             element.style.visibility = 'hidden';
             element.style.opacity = '0';
 
             score++;
+            if (bonusItem) {
+                timeLeft += 1;
+                showBonusToast();
+            }
+
             scoreDisplay.textContent = score;
             scoreDisplay.parentElement.classList.remove('score-anim');
             void scoreDisplay.parentElement.offsetWidth;
@@ -343,10 +388,19 @@
 
             if (window.navigator.vibrate) try { window.navigator.vibrate(10); } catch (e) { }
 
-            // Immediate DOM removal: get it out of the tree
             if (element.parentNode) {
                 element.parentNode.removeChild(element);
             }
+        }
+
+        function showBonusToast() {
+            const toast = document.getElementById('bonus-toast');
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 600);
         }
 
         function endGame() {

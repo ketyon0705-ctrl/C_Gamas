@@ -135,18 +135,20 @@
 
         <!-- Character Selection Overlay -->
         <div id="char-selection-view"
-            class="absolute inset-0 bg-indigo-900/90 flex flex-col items-center justify-center z-[60] p-4 text-white">
-            <h2 class="text-3xl font-bold mb-8 text-center">キミのしょくぎょうを<br>えらんでね！</h2>
+            class="absolute inset-0 bg-indigo-900/90 flex flex-col items-center justify-center z-[60] p-4 text-white text-center">
+            <h2 class="text-3xl font-bold mb-8">キミのしょくぎょうを<br>えらんでね！</h2>
             <div class="flex space-x-4 w-full max-w-md">
                 <button onclick="selectClass('hero')"
                     class="char-select-btn flex-1 bg-white text-indigo-900 p-6 rounded-3xl border-4 border-orange-500 shadow-xl flex flex-col items-center">
-                    <span class="text-6xl mb-4">⚔️</span>
+                    <img src="./../assets/games/brave_maze/hero.svg" class="w-16 h-16 mb-4 object-contain"
+                        onerror="this.src='https://api.iconify.design/noto:crossed-swords.svg'">
                     <span class="text-xl font-bold">勇者</span>
                     <span class="text-[10px] mt-2 opacity-70">けん と たて で たたかう！</span>
                 </button>
                 <button onclick="selectClass('wizard')"
                     class="char-select-btn flex-1 bg-white text-indigo-900 p-6 rounded-3xl border-4 border-blue-500 shadow-xl flex flex-col items-center">
-                    <span class="text-6xl mb-4">🪄</span>
+                    <img src="./../assets/games/brave_maze/wizard.svg" class="w-16 h-16 mb-4 object-contain"
+                        onerror="this.src='https://api.iconify.design/noto:magic-wand.svg'">
                     <span class="text-xl font-bold">魔法使い</span>
                     <span class="text-[10px] mt-2 opacity-70">ふしぎな まほう で たたかう！</span>
                 </button>
@@ -165,7 +167,9 @@
 
             <div id="big-house" class="text-[140px] mb-6 drop-shadow-2xl transition-all duration-500">⛺</div>
 
-            <div id="home-player" class="text-7xl mb-10 filter drop-shadow-md">🧙</div>
+            <div id="home-player" class="w-24 h-24 mb-10 filter drop-shadow-md flex items-center justify-center">
+                <img id="home-player-img" src="" class="w-full h-full object-contain">
+            </div>
 
             <button onclick="startAdventure()"
                 class="bg-orange-500 text-white px-12 py-4 rounded-full border-b-8 border-orange-800 text-2xl font-bold hover:bg-orange-400 active:border-b-0 active:translate-y-2 transition-all shadow-2xl">
@@ -274,8 +278,14 @@
             xpToLevel: 100,
             bases: ["⛺", "🏡", "🏯", "🏰", "🌌"],
             avatars: {
-                hero: ["⚔️", "🛡️⚔️", "⚔️🛡️✨", "🛡️⚔️👑", "🔱🛡️🔥"],
-                wizard: ["🧙‍♀️", "🧙‍♀️✨", "🧙‍♀️🪄", "🧙‍♀️🪄💎", "👑🧙‍♀️🔥"]
+                hero: ["./../assets/games/brave_maze/hero.svg"],
+                wizard: ["./../assets/games/brave_maze/wizard.svg"]
+            },
+            enemy: "./../assets/games/brave_maze/monster.svg",
+            fallbacks: {
+                hero: "⚔️",
+                wizard: "🧙‍♀️",
+                monster: "👾"
             },
             titles: {
                 hero: ["見習い剣士", "迷宮の騎士", "熟練の勇者", "王国騎士団長", "伝説の勇者"],
@@ -358,17 +368,32 @@
             const container = document.getElementById('maze-container');
             container.style.gridTemplateColumns = `repeat(${state.mazeSize}, 50px)`;
             container.innerHTML = '';
-            const avatarList = config.avatars[state.selectedClass];
-            const currentAvatar = avatarList[Math.min(Math.floor((state.level - 1) / 3), avatarList.length - 1)];
+
+            const avatarPath = config.avatars[state.selectedClass][0];
+            const enemyPath = config.enemy;
 
             for (let y = 0; y < state.mazeSize; y++) {
                 for (let x = 0; x < state.mazeSize; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     cell.id = `cell-${x}-${y}`;
-                    if (state.obstacles.some(o => o.x === x && o.y === y)) cell.innerText = "🪨";
-                    else if (x === 0 && y === 0) cell.innerHTML = `<span id="maze-player" class="transition-all duration-300 transform inline-block">${currentAvatar}</span>`;
-                    else if (x === state.enemyPos.x && y === state.enemyPos.y) cell.innerHTML = `<span id="maze-enemy" class="animate-bounce inline-block">👾</span>`;
+                    if (state.obstacles.some(o => o.x === x && o.y === y)) {
+                        cell.innerText = "🪨";
+                    } else if (x === 0 && y === 0) {
+                        const img = document.createElement('img');
+                        img.id = 'maze-player';
+                        img.src = avatarPath;
+                        img.className = 'w-[40px] h-[40px] object-contain transition-all duration-300 transform';
+                        img.onerror = () => { img.style.display = 'none'; cell.innerHTML = `<span id="maze-player" class="transition-all duration-300 transform inline-block">${config.fallbacks[state.selectedClass]}</span>`; };
+                        cell.appendChild(img);
+                    } else if (x === state.enemyPos.x && y === state.enemyPos.y) {
+                        const img = document.createElement('img');
+                        img.id = 'maze-enemy';
+                        img.src = enemyPath;
+                        img.className = 'w-[40px] h-[40px] object-contain animate-bounce';
+                        img.onerror = () => { img.style.display = 'none'; cell.innerHTML = `<span id="maze-enemy" class="animate-bounce inline-block">${config.fallbacks.monster}</span>`; };
+                        cell.appendChild(img);
+                    }
                     container.appendChild(cell);
                 }
             }
@@ -483,8 +508,12 @@
             const houseEmoji = config.bases[Math.min(Math.floor((state.level - 1) / 4), 4)];
             document.getElementById('big-house').innerText = houseEmoji;
 
-            const avatarList = config.avatars[state.selectedClass];
-            document.getElementById('home-player').innerText = avatarList[rankIdx];
+            const avatarPath = config.avatars[state.selectedClass][0];
+            const homePlayerImg = document.getElementById('home-player-img');
+            homePlayerImg.src = avatarPath;
+            homePlayerImg.onerror = () => {
+                document.getElementById('home-player').innerHTML = `<span class="text-7xl">${config.fallbacks[state.selectedClass]}</span>`;
+            };
         }
 
         function spawnEffect(parent, emoji) {
