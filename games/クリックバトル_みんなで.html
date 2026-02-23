@@ -388,17 +388,30 @@
             money += 0.35 + (currentLevel * 0.05);
             cannonCharge = Math.min(100, cannonCharge + 0.25);
 
+            const screenWidth = document.getElementById('stage').clientWidth || 800;
             allyUnits.forEach(a => {
                 let cm = true;
-                const e = enemyUnits.find(ex => (ex.x - a.x) < 45 && (ex.x - a.x) > 0);
-                if (e) { cm = false; e.currentHp -= a.atk / 60; e.el.classList.add('damage'); }
-                if (a.x > document.getElementById('stage').clientWidth - 120) { cm = false; enemyHP -= a.atk / 60; }
+                // 衝突判定：相手が目の前（50px以内）にいるか、少し重なっている場合
+                const e = enemyUnits.find(ex => (ex.x - a.x) < 50 && (ex.x - a.x) > -10);
+                if (e) {
+                    cm = false;
+                    e.currentHp -= a.atk / 60;
+                    e.el.classList.add('damage');
+                    setTimeout(() => { if (e.el) e.el.classList.remove('damage'); }, 100);
+                }
+                if (a.x > screenWidth - 120) { cm = false; enemyHP -= a.atk / 60; }
                 if (cm) { a.x += a.speed; a.el.style.left = a.x + 'px'; }
             });
             enemyUnits.forEach(e => {
                 let cm = true;
-                const a = allyUnits.find(ax => (e.x - ax.x) < 45 && (e.x - ax.x) > 0);
-                if (a) { cm = false; a.currentHp -= e.atk / 60; a.el.classList.add('damage'); }
+                // 衝突判定：相手が目の前（50px以内）にいるか、少し重なっている場合
+                const a = allyUnits.find(ax => (e.x - ax.x) < 50 && (e.x - ax.x) > -10);
+                if (a) {
+                    cm = false;
+                    a.currentHp -= e.atk / 60;
+                    a.el.classList.add('damage');
+                    setTimeout(() => { if (a.el) a.el.classList.remove('damage'); }, 100);
+                }
                 if (e.x < 120) { cm = false; playerHP -= e.atk / 60; }
                 if (cm) { e.x += e.speed; e.el.style.left = e.x + 'px'; }
             });

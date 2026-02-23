@@ -408,6 +408,7 @@
             clearInterval(spawnInterval);
             clearInterval(timerInterval);
             gameUI.classList.add('hidden');
+            document.getElementById('time-over-overlay').classList.add('hidden');
 
             players[currentPlayerIndex].score = score;
 
