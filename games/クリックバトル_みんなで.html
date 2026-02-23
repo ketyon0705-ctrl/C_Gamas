@@ -226,8 +226,10 @@
         <div id="turn-result-screen"
             class="hidden absolute inset-0 flex flex-col items-center justify-center z-[150] bg-white/95 p-6 text-center">
             <h2 id="res-title" class="text-5xl font-black mb-4">こうたい！</h2>
-            <p id="res-msg" class="text-gray-700 text-2xl font-bold mb-8"></p>
-            <button onclick="nextPlayer()" class="btn-fancy py-5 px-12 text-2xl bg-blue-500">つぎのひとへ</button>
+            <p id="res-msg" class="text-gray-700 text-2xl font-bold mb-8 whitespace-pre-wrap"></p>
+            <button onclick="nextPlayer()" class="btn-fancy py-5 px-12 text-2xl bg-blue-500">
+                <span id="next-btn-text">つぎのひとへ</span>
+            </button>
         </div>
 
         <!-- 6. Ranking -->
@@ -248,6 +250,7 @@
         let gameActive = false;
 
         let money = 0, playerHP = MAX_HP, enemyHP = MAX_HP;
+        let currentLevel = 1;
         let startTime = 0, totalTime = 0, cannonCharge = 0;
         let lastEnemySpawn = 0, gameLoopId = null;
         let allyUnits = [], enemyUnits = [];
@@ -272,9 +275,15 @@
         function confirmNames() {
             players = [];
             for (let i = 1; i <= playerCount; i++) {
-                players.push({ name: document.getElementById(`p${i}-name`).value || `プレイヤー${i}`, score: 0, win: false, time: 999 });
+                players.push({
+                    name: document.getElementById(`p${i}-name`).value || `プレイヤー${i}`,
+                    maxLevel: 1,
+                    winCount: 0,
+                    lastEnemyHp: MAX_HP
+                });
             }
             currentPlayerIndex = 0;
+            currentLevel = 1;
             document.getElementById('name-screen').classList.add('hidden');
             showReadyScreen();
         }
@@ -284,7 +293,11 @@
             document.getElementById('play-view').classList.add('hidden');
             document.getElementById('ready-screen').classList.remove('hidden');
             document.getElementById('game-info').classList.add('hidden');
-            document.getElementById('turn-title').textContent = `${players[currentPlayerIndex].name} の ばん`;
+
+            const p = players[currentPlayerIndex];
+            document.getElementById('turn-title').textContent = (p.winCount > 0) ?
+                `${p.name} つぎは レベル ${currentLevel}だ！` :
+                `${p.name} の ばん`;
             renderButtons();
         }
 
@@ -292,13 +305,14 @@
             document.getElementById('ready-screen').classList.add('hidden');
             document.getElementById('play-view').classList.remove('hidden');
             document.getElementById('game-info').classList.remove('hidden');
-            document.getElementById('player-label').textContent = players[currentPlayerIndex].name;
+            document.getElementById('player-label').textContent = `${players[currentPlayerIndex].name} (Lv.${currentLevel})`;
 
-            // Reset
+            // Reset state with level scaling
             allyUnits.forEach(u => u.el.remove());
             enemyUnits.forEach(u => u.el.remove());
             allyUnits = []; enemyUnits = [];
-            money = 0; playerHP = MAX_HP; enemyHP = MAX_HP;
+            money = 0; playerHP = MAX_HP;
+            enemyHP = MAX_HP * (1 + (currentLevel - 1) * 0.4); // Scale HP by level
             cannonCharge = 0; startTime = Date.now();
             gameActive = true;
             updateUI();
@@ -337,22 +351,28 @@
             el.style.left = (document.getElementById('stage').clientWidth - 150) + 'px';
             el.style.transform = 'scaleX(-1)';
             document.getElementById('stage').appendChild(el);
-            const t = { hp: 150, atk: 12, speed: -1.8 };
+
+            const levelMult = 1 + (currentLevel - 1) * 0.25;
+            const t = { hp: 150 * levelMult, atk: 12 * levelMult, speed: -1.8 - (currentLevel * 0.1) };
             enemyUnits.push({ ...t, currentHp: t.hp, x: document.getElementById('stage').clientWidth - 150, el: el, icon: el.innerText });
         }
 
         function fireCannon() {
             if (cannonCharge < 100) return;
             cannonCharge = 0;
-            enemyUnits.forEach(e => { e.currentHp -= 400; e.el.classList.add('damage'); setTimeout(() => e.el.classList.remove('damage'), 200); });
-            enemyHP -= 300;
+            const laserDmg = 400 + (currentLevel * 50);
+            enemyUnits.forEach(e => { e.currentHp -= laserDmg; e.el.classList.add('damage'); setTimeout(() => e.el.classList.remove('damage'), 200); });
+            enemyHP -= laserDmg * 0.75;
             updateUI();
         }
 
         function updateUI() {
             document.getElementById('money-display').textContent = Math.floor(money);
             document.getElementById('player-hp-bar').style.width = `${(playerHP / MAX_HP) * 100}%`;
-            document.getElementById('enemy-hp-bar').style.width = `${(enemyHP / MAX_HP) * 100}%`;
+
+            const curEnemyMax = MAX_HP * (1 + (currentLevel - 1) * 0.4);
+            document.getElementById('enemy-hp-bar').style.width = `${(enemyHP / curEnemyMax) * 100}%`;
+
             document.getElementById('cannon-btn').disabled = cannonCharge < 100;
             document.getElementById('cannon-btn').className = `btn-game w-full bg-blue-600 text-white font-black py-4 rounded-3xl border-blue-800 text-lg ${cannonCharge < 100 ? 'disabled-btn' : 'animate-pulse'}`;
             unitTypes.forEach(t => { const b = document.getElementById(`btn-${t.id}`); if (b) money >= t.cost ? b.classList.remove('disabled-btn') : b.classList.add('disabled-btn'); });
@@ -363,8 +383,10 @@
             totalTime = (Date.now() - startTime) / 1000;
             document.getElementById('timer-display').textContent = totalTime.toFixed(1) + 's';
 
-            if (Date.now() - lastEnemySpawn > 3000) { spawnEnemy(); lastEnemySpawn = Date.now(); }
-            money += 0.3; cannonCharge = Math.min(100, cannonCharge + 0.2);
+            const spawnRate = Math.max(800, 3500 - (currentLevel * 300));
+            if (Date.now() - lastEnemySpawn > spawnRate) { spawnEnemy(); lastEnemySpawn = Date.now(); }
+            money += 0.35 + (currentLevel * 0.05);
+            cannonCharge = Math.min(100, cannonCharge + 0.25);
 
             allyUnits.forEach(a => {
                 let cm = true;
@@ -393,20 +415,40 @@
 
         function endTurn(win) {
             gameActive = false; cancelAnimationFrame(gameLoopId);
-            players[currentPlayerIndex].win = win;
-            players[currentPlayerIndex].time = totalTime;
-            players[currentPlayerIndex].score = Math.max(0, enemyHP);
+            const p = players[currentPlayerIndex];
 
-            document.getElementById('turn-result-screen').classList.remove('hidden');
-            document.getElementById('res-title').textContent = win ? "だいせいこう！ 🎉" : "ざんねん！ 💥";
-            document.getElementById('res-title').className = `text-5xl font-black mb-4 ${win ? 'text-green-500' : 'text-red-500'}`;
-            document.getElementById('res-msg').textContent = win ? `タイム: ${totalTime.toFixed(1)}びょう` : `のこりHP: ${Math.floor(enemyHP)}`;
+            if (win) {
+                p.winCount++;
+                p.maxLevel = currentLevel;
+                document.getElementById('turn-result-screen').classList.remove('hidden');
+                document.getElementById('res-title').textContent = "レベルアップ！ 🎉";
+                document.getElementById('res-title').className = "text-5xl font-black mb-4 text-green-500";
+                document.getElementById('res-msg').textContent = `レベル ${currentLevel} をクリアしたよ！\nつぎの レベル ${currentLevel + 1} に挑戦だ！`;
+                document.getElementById('next-btn-text').textContent = "つぎのレベルへ！";
+            } else {
+                p.lastEnemyHp = enemyHP;
+                document.getElementById('turn-result-screen').classList.remove('hidden');
+                document.getElementById('res-title').textContent = "ざんねん！ 💥";
+                document.getElementById('res-title').className = "text-5xl font-black mb-4 text-red-500";
+                document.getElementById('res-msg').textContent = `レベル ${currentLevel} で まけちゃった…。\nつぎのひと に 交代だよ！`;
+                document.getElementById('next-btn-text').textContent = "つぎのひとへ";
+            }
         }
 
         function nextPlayer() {
-            currentPlayerIndex++;
-            if (currentPlayerIndex < playerCount) showReadyScreen();
-            else showRanking();
+            const p = players[currentPlayerIndex];
+
+            // If win, continue same player (check enemyHP was <= 0)
+            if (enemyHP <= 0) {
+                currentLevel++;
+                showReadyScreen();
+            } else {
+                // If loss, move to next player
+                currentPlayerIndex++;
+                currentLevel = 1;
+                if (currentPlayerIndex < playerCount) showReadyScreen();
+                else showRanking();
+            }
         }
 
         function showRanking() {
@@ -416,9 +458,8 @@
             document.getElementById('game-info').classList.add('hidden');
 
             const sorted = [...players].sort((a, b) => {
-                if (a.win && !b.win) return -1;
-                if (!a.win && b.win) return 1;
-                return a.win ? (a.time - b.time) : (a.score - b.score);
+                if (b.winCount !== a.winCount) return b.winCount - a.winCount;
+                return a.lastEnemyHp - b.lastEnemyHp; // Lower enemy HP is better
             });
 
             const list = document.getElementById('ranking-list');
@@ -426,7 +467,8 @@
             sorted.forEach((p, i) => {
                 const row = document.createElement('div');
                 row.className = 'rank-card';
-                row.innerHTML = `<span>${['🥇', '🥈', '🥉', '⚪'][i] || '⚪'} ${p.name}</span><span class="font-black text-blue-600">${p.win ? p.time.toFixed(1) + 's' : 'HP ' + Math.floor(p.score)}</span>`;
+                const scoreText = p.winCount > 0 ? `${p.winCount}回 かち！` : `のこりHP ${Math.floor(p.lastEnemyHp)}`;
+                row.innerHTML = `<span>${['🥇', '🥈', '🥉', '⚪'][i] || '⚪'} ${p.name}</span><span class="font-black text-blue-600">${scoreText}</span>`;
                 list.appendChild(row);
             });
         }
