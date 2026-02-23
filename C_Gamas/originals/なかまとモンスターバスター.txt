@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>モンスター・バスターズ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .game-btn {
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .game-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <!-- スコアとライフ -->
+        <div class="p-4 flex justify-between items-start text-white text-xl font-bold">
+            <div class="bg-black/40 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                てんすう: <span id="scoreDisplay" class="text-yellow-400">0</span>
+            </div>
+            <div class="bg-black/40 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                ライフ: <span id="lifeDisplay">❤️❤️❤️</span>
+            </div>
+        </div>
+
+        <!-- オーバーレイ画面 -->
+        <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-black/70 pointer-events-auto">
+            <div class="bg-white p-8 rounded-[2rem] text-center shadow-2xl max-w-xs mx-auto border-4 border-indigo-400">
+                <h1 id="overlayTitle" class="text-3xl font-black mb-4 text-indigo-600">モンスター<br>バスターズ</h1>
+                <p id="overlayMsg" class="text-gray-600 mb-6 font-bold">ゆびでロケットをうごかして<br>モンスターをやっつけよう！</p>
+                <button id="startBtn" class="game-btn bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-black py-5 px-10 rounded-full text-2xl shadow-xl w-full">
+                    スタート！
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const lifeDisplay = document.getElementById('lifeDisplay');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayMsg = document.getElementById('overlayMsg');
+        const startBtn = document.getElementById('startBtn');
+
+        // ゲームの状態
+        let gameState = 'START';
+        let score = 0;
+        let lives = 3;
+        let frameCount = 0;
+        let isPressing = false; // 画面を押しているか
+        
+        let player = {
+            x: 0,
+            y: 0,
+            targetX: 0,
+            size: 60,
+            powerUp: 0,
+            allies: [],
+            lastShot: 0
+        };
+
+        let bullets = [];
+        let enemies = [];
+        let items = [];
+        let particles = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.targetX = canvas.width / 2;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 120;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Bullet {
+            constructor(x, y, angle, speed = 12, isAlly = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = 8;
+                this.color = isAlly ? '#fbbf24' : '#34d399';
+                this.toRemove = false;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.y < -50 || this.x < -50 || this.x > canvas.width + 50 || this.y > canvas.height + 50) {
+                    this.toRemove = true;
+                }
+            }
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor() {
+                this.size = 40 + Math.random() * 30;
+                this.x = Math.random() * (canvas.width - this.size) + this.size / 2;
+                this.y = -this.size;
+                this.speed = 2 + Math.random() * 2 + (score / 1000);
+                this.emoji = ['👾', '👹', '👻', '👽', '🕷️'][Math.floor(Math.random() * 5)];
+                this.health = this.size > 55 ? 2 : 1;
+                this.toRemove = false;
+            }
+            update() {
+                this.y += this.speed;
+                if (this.y > canvas.height + this.size) {
+                    this.toRemove = true;
+                    damagePlayer();
+                }
+            }
+            draw() {
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x, this.y);
+            }
+        }
+
+        class Item {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 40;
+                this.vy = 2.5;
+                this.angle = 0;
+                this.toRemove = false;
+                
+                const rand = Math.random();
+                if (rand < 0.4) {
+                    this.type = 'HEART';
+                    this.emoji = '❤️';
+                } else if (rand < 0.7) {
+                    this.type = 'POWER';
+                    this.emoji = '💎';
+                } else {
+                    this.type = 'ALLY';
+                    this.emoji = '🤝';
+                }
+            }
+            update() {
+                this.y += this.vy;
+                this.angle += 0.05;
+                this.x += Math.sin(this.angle) * 1.5;
+                if (this.y > canvas.height + 50) this.toRemove = true;
+            }
+            draw() {
+                ctx.save();
+                ctx.font = '45px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'white';
+                ctx.fillText(this.emoji, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 1.0;
+                this.color = color;
+                this.toRemove = false;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.05;
+                if (this.life <= 0) this.toRemove = true;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class Ally {
+            constructor(offset) {
+                this.offsetX = offset;
+                this.lastShot = 0;
+            }
+            update() {
+                this.x = player.x + this.offsetX;
+                this.y = player.y + 20;
+                if (gameState === 'PLAYING' && Date.now() - this.lastShot > 800) {
+                    bullets.push(new Bullet(this.x, this.y, -Math.PI / 2, 10, true));
+                    this.lastShot = Date.now();
+                }
+            }
+            draw() {
+                ctx.font = '35px Arial';
+                ctx.fillText('🤖', this.x, this.y);
+            }
+        }
+
+        function shoot() {
+            if (gameState !== 'PLAYING') return;
+            const now = Date.now();
+            if (now - player.lastShot < 150) return; // 連射速度制限
+
+            const angle = -Math.PI / 2; // 真上に撃つ
+            
+            if (player.powerUp > 0) {
+                bullets.push(new Bullet(player.x, player.y, angle));
+                bullets.push(new Bullet(player.x, player.y, angle - 0.2));
+                bullets.push(new Bullet(player.x, player.y, angle + 0.2));
+                player.powerUp--;
+            } else {
+                bullets.push(new Bullet(player.x, player.y, angle));
+            }
+            
+            player.lastShot = now;
+        }
+
+        function damagePlayer() {
+            lives--;
+            updateUI();
+            createExplosion(player.x, player.y, 'red');
+            if (lives <= 0) gameOver();
+        }
+
+        function initGame() {
+            score = 0;
+            lives = 3;
+            player.powerUp = 0;
+            player.allies = [];
+            bullets = [];
+            enemies = [];
+            items = [];
+            particles = [];
+            player.targetX = canvas.width / 2;
+            player.x = canvas.width / 2;
+            updateUI();
+            gameState = 'PLAYING';
+            overlay.classList.add('hidden');
+        }
+
+        function updateUI() {
+            scoreDisplay.innerText = score;
+            lifeDisplay.innerText = '❤️'.repeat(lives);
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            isPressing = false;
+            overlay.classList.remove('hidden');
+            overlayTitle.innerHTML = "おわっちゃった！";
+            overlayMsg.innerHTML = "てんすう: <span class='text-2xl text-indigo-600'>" + score + "</span><br>もういちど あそぶ？";
+            startBtn.innerText = "リトライ！";
+        }
+
+        function update() {
+            if (gameState === 'PLAYING') {
+                frameCount++;
+
+                // プレイヤーの移動 (ターゲットにゆっくり近づく)
+                player.x += (player.targetX - player.x) * 0.2;
+
+                // 押している間は自動で撃つ
+                if (isPressing) {
+                    shoot();
+                }
+
+                // モンスター出現
+                const spawnRate = Math.max(20, 50 - Math.floor(score / 500));
+                if (frameCount % spawnRate === 0) {
+                    enemies.push(new Enemy());
+                }
+
+                // 各要素の更新
+                bullets.forEach(b => b.update());
+                enemies.forEach(e => e.update());
+                items.forEach(item => item.update());
+                particles.forEach(p => p.update());
+                player.allies.forEach(ally => ally.update());
+
+                // 当たり判定 (弾 vs 敵)
+                bullets.forEach(b => {
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(b.x - e.x, b.y - e.y);
+                        if (dist < e.size / 2 + b.size) {
+                            e.health--;
+                            b.toRemove = true;
+                            createExplosion(e.x, e.y, '#f87171');
+                            if (e.health <= 0) {
+                                score += 10;
+                                updateUI();
+                                if (Math.random() < 0.3) {
+                                    items.push(new Item(e.x, e.y));
+                                }
+                                e.toRemove = true;
+                            }
+                        }
+                    });
+                });
+
+                // 当たり判定 (アイテム vs プレイヤー)
+                items.forEach(item => {
+                    const dist = Math.hypot(item.x - player.x, item.y - player.y);
+                    if (dist < 60) {
+                        applyItem(item.type);
+                        item.toRemove = true;
+                    }
+                });
+
+                // 当たり判定 (敵 vs プレイヤー)
+                enemies.forEach(e => {
+                    const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (dist < 50) {
+                        e.toRemove = true;
+                        damagePlayer();
+                    }
+                });
+
+                // おそうじ
+                bullets = bullets.filter(b => !b.toRemove);
+                enemies = enemies.filter(e => !e.toRemove);
+                items = items.filter(i => !i.toRemove);
+                particles = particles.filter(p => !p.toRemove);
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function applyItem(type) {
+            if (type === 'HEART') {
+                if (lives < 5) lives++;
+                createExplosion(player.x, player.y, '#f87171');
+            } else if (type === 'POWER') {
+                player.powerUp += 20;
+                createExplosion(player.x, player.y, '#60a5fa');
+            } else if (type === 'ALLY') {
+                if (player.allies.length < 2) {
+                    const offset = player.allies.length === 0 ? -80 : 80;
+                    player.allies.push(new Ally(offset));
+                }
+                createExplosion(player.x, player.y, '#fbbf24');
+            }
+            updateUI();
+        }
+
+        function draw() {
+            // 背景
+            ctx.fillStyle = '#1e1b4b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 背景の星
+            ctx.fillStyle = '#ffffff33';
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.arc((i * 211) % canvas.width, (frameCount * 2 + i * 300) % canvas.height, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 描画
+            particles.forEach(p => p.draw());
+            items.forEach(item => item.draw());
+            enemies.forEach(e => e.draw());
+            bullets.forEach(b => b.draw());
+            player.allies.forEach(ally => ally.draw());
+
+            // プレイヤー
+            ctx.font = '80px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#60a5fa';
+            ctx.fillText('🚀', player.x, player.y);
+            ctx.shadowBlur = 0;
+
+            // パワーアップ中
+            if (player.powerUp > 0) {
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('⚡️パワーアップ！: ' + player.powerUp, player.x, player.y + 70);
+            }
+        }
+
+        // --- 操作イベント ---
+        
+        // マウス
+        window.addEventListener('mousedown', (e) => {
+            if (gameState === 'PLAYING') {
+                isPressing = true;
+                player.targetX = e.clientX;
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (gameState === 'PLAYING') {
+                player.targetX = e.clientX;
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            isPressing = false;
+        });
+
+        // タッチ
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameState === 'PLAYING') {
+                isPressing = true;
+                player.targetX = e.touches[0].clientX;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (gameState === 'PLAYING') {
+                e.preventDefault();
+                player.targetX = e.touches[0].clientX;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isPressing = false;
+        });
+
+        startBtn.addEventListener('click', initGame);
+
+        // ループ開始
+        update();
+
+    </script>
+</body>
+</html>
