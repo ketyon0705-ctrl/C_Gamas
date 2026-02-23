@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>にゃんこ風・クリックバトル - かんたん版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;900&display=swap');
+        
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* ステージ背景 */
+        .game-stage {
+            height: 350px;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            position: relative;
+            border-bottom: 8px solid #3d8b40;
+            overflow: hidden;
+        }
+
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: #4caf50;
+            z-index: 1;
+        }
+
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.6;
+            animation: moveCloud linear infinite;
+        }
+
+        @keyframes moveCloud {
+            from { left: -100px; }
+            to { left: 100%; }
+        }
+
+        /* 拠点（いえ） */
+        .base {
+            position: absolute;
+            bottom: 40px;
+            width: 100px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            z-index: 10;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2));
+        }
+
+        .player-base { left: 20px; }
+        .enemy-base { right: 20px; }
+
+        .hp-bar-container {
+            width: 90px;
+            height: 12px;
+            background: #333;
+            border: 2px solid #fff;
+            margin-bottom: 8px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4b2b, #ff416c);
+            width: 100%;
+            transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* ユニット（なかま） */
+        .unit {
+            position: absolute;
+            bottom: 40px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            z-index: 5;
+            transition: left 0.05s linear;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        .unit.damage {
+            animation: damageFlash 0.2s;
+        }
+
+        @keyframes damageFlash {
+            0% { filter: brightness(2) sepia(1) hue-rotate(-50deg); }
+            100% { filter: brightness(1); }
+        }
+
+        /* キャノンのひかり */
+        #laser-beam {
+            position: absolute;
+            top: 220px;
+            left: 70px;
+            height: 40px;
+            background: linear-gradient(to bottom, #fff, #4facfe, #fff);
+            box-shadow: 0 0 30px #4facfe, 0 0 60px #fff;
+            z-index: 40;
+            display: none;
+            border-radius: 0 20px 20px 0;
+            transform-origin: left center;
+        }
+
+        .click-effect {
+            position: absolute;
+            pointer-events: none;
+            color: #fbbf24;
+            font-weight: 900;
+            font-size: 1.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            animation: floatUp 0.6s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+        }
+
+        .btn-game {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-bottom-width: 6px;
+        }
+
+        .btn-game:active {
+            transform: translateY(4px);
+            border-bottom-width: 2px;
+        }
+
+        .disabled-btn {
+            filter: grayscale(1);
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            border-bottom-width: 6px !important;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col border-8 border-gray-800">
+        <!-- うえのステータス -->
+        <div class="p-4 bg-gray-900 text-white flex justify-between items-center relative overflow-hidden">
+            <div class="flex items-center space-x-4 z-10">
+                <div class="bg-gray-800 px-4 py-2 rounded-2xl border-2 border-blue-500">
+                    <span id="level-display" class="text-blue-400 font-black text-xl italic tracking-tighter">レベル 1</span>
+                </div>
+                <div class="bg-gray-800 px-6 py-2 rounded-2xl border-2 border-yellow-500">
+                    <span class="text-xs text-yellow-500 block font-bold">おかね</span>
+                    <span id="money-display" class="text-3xl text-yellow-400 font-black tracking-tight">0</span>
+                </div>
+            </div>
+            
+            <div id="game-status" class="hidden md:block text-xl font-black px-6 py-2 bg-blue-600 rounded-full border-4 border-blue-400 shadow-lg animate-pulse">
+                すすめ！
+            </div>
+
+            <div class="flex flex-col items-end z-10">
+                <span class="text-[10px] text-blue-300 font-black mb-1">キャノンのパワー</span>
+                <div class="w-32 h-6 bg-gray-700 rounded-full overflow-hidden border-2 border-gray-500 p-0.5">
+                    <div id="cannon-gauge" class="h-full bg-gradient-to-r from-blue-500 to-cyan-300 rounded-full shadow-[0_0_10px_#4facfe]" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ゲーム画面 -->
+        <div id="stage" class="game-stage w-full cursor-pointer" onclick="handleStageClick(event)">
+            <!-- くも -->
+            <div class="cloud w-16 h-6 top-10" style="animation-duration: 20s; animation-delay: -5s;"></div>
+            <div class="cloud w-24 h-8 top-20" style="animation-duration: 25s; animation-delay: -15s;"></div>
+            <div class="cloud w-20 h-7 top-5" style="animation-duration: 18s; animation-delay: -2s;"></div>
+            
+            <div id="laser-beam"></div>
+            
+            <!-- じぶんのいえ -->
+            <div class="base player-base">
+                <div class="hp-bar-container"><div id="player-hp-bar" class="hp-bar-fill"></div></div>
+                <div class="text-6xl drop-shadow-lg">🏰</div>
+                <div class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold mt-2 border-2 border-white">じぶんの いえ</div>
+            </div>
+
+            <!-- てきのいえ -->
+            <div id="enemy-base-el" class="base enemy-base">
+                <div class="hp-bar-container"><div id="enemy-hp-bar" class="hp-bar-fill"></div></div>
+                <div class="text-6xl drop-shadow-lg">😈</div>
+                <div class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold mt-2 border-2 border-white">てきの いえ</div>
+            </div>
+
+            <div class="ground"></div>
+        </div>
+
+        <!-- ボタンが並ぶところ -->
+        <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-6 bg-gray-50 border-t-4 border-gray-200">
+            <!-- おかねをかせぐボタン -->
+            <div class="flex flex-col">
+                <button onclick="earnMoneyManually()" class="btn-game h-full bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-black py-4 rounded-3xl shadow-lg border-yellow-600 text-xl flex flex-col items-center justify-center group">
+                    <span class="text-3xl group-active:scale-125 transition">💰</span>
+                    たたく！
+                </button>
+            </div>
+            
+            <!-- なかまをだすボタン -->
+            <div class="md:col-span-3 grid grid-cols-3 gap-3" id="spawn-buttons">
+            </div>
+        </div>
+
+        <!-- キャノンボタン -->
+        <div class="px-6 pb-6 bg-gray-50">
+            <button id="cannon-btn" onclick="fireCannon()" class="btn-game w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-3xl shadow-xl border-blue-800 text-2xl tracking-widest disabled-btn" disabled>
+                ⚡️ キャノン はっしゃ！ ⚡️
+            </button>
+        </div>
+    </div>
+
+    <!-- おわったときの画面 -->
+    <div id="modal" class="fixed inset-0 bg-gray-900/90 hidden flex items-center justify-center z-[100] backdrop-blur-sm">
+        <div class="bg-white p-12 rounded-[40px] text-center shadow-[0_0_100px_rgba(255,255,255,0.1)] border-8 border-gray-800 max-w-sm w-full mx-4 transform scale-110">
+            <h2 id="modal-title" class="text-5xl font-black mb-6 tracking-tighter">結果</h2>
+            <p id="modal-message" class="text-lg mb-10 text-gray-600 font-bold leading-relaxed"></p>
+            <button id="retry-btn" onclick="restartGame()" class="btn-game w-full bg-blue-500 hover:bg-blue-400 text-white px-10 py-5 rounded-3xl text-3xl font-black border-blue-700 shadow-2xl">
+                つぎへ！
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const MAX_HP = 2000;
+        let STAGE_WIDTH = 0;
+        let PLAYER_BASE_X = 60;
+        let ENEMY_BASE_X = 0;
+
+        let currentLevel = 1;
+        let money = 0;
+        let playerHP = MAX_HP;
+        let enemyHP = MAX_HP;
+        let isGameOver = false;
+        let lastEnemySpawn = Date.now();
+        let cannonCharge = 0;
+        let gameLoopId = null;
+
+        let allyUnits = [];
+        let enemyUnits = [];
+
+        const unitTypes = [
+            { id: 'cat', name: 'ねこ', icon: '🐱', cost: 50, hp: 120, atk: 15, speed: 2.2 },
+            { id: 'dog', name: 'いぬ', icon: '🐶', cost: 180, hp: 450, atk: 40, speed: 1.6 },
+            { id: 'tiger', name: 'とら', icon: '🐯', cost: 700, hp: 1500, atk: 110, speed: 1.2 }
+        ];
+
+        const enemyTypes = [
+            { id: 'e1', icon: '👾', hp: 100, atk: 8, speed: -1.7 },
+            { id: 'e2', icon: '👻', hp: 400, atk: 30, speed: -1.2 },
+            { id: 'e3', icon: '👹', hp: 1400, atk: 85, speed: -0.8 }
+        ];
+
+        function init() {
+            const stage = document.getElementById('stage');
+            STAGE_WIDTH = stage.clientWidth;
+            ENEMY_BASE_X = STAGE_WIDTH - 100;
+            
+            renderButtons();
+            
+            setInterval(() => {
+                if (!isGameOver) {
+                    money += 5;
+                    cannonCharge = Math.min(100, cannonCharge + 1.5);
+                    updateUI();
+                }
+            }, 500);
+
+            restartGame();
+        }
+
+        function restartGame() {
+            allyUnits.forEach(u => u.element.remove());
+            enemyUnits.forEach(u => u.element.remove());
+            
+            allyUnits = [];
+            enemyUnits = [];
+            money = 0;
+            playerHP = MAX_HP;
+            enemyHP = MAX_HP * (1 + (currentLevel - 1) * 0.3);
+            cannonCharge = 0;
+            isGameOver = false;
+            lastEnemySpawn = Date.now();
+
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('level-display').innerText = `レベル ${currentLevel}`;
+            document.getElementById('game-status').innerText = "すすめ！";
+            updateUI();
+
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoop();
+        }
+
+        function renderButtons() {
+            const container = document.getElementById('spawn-buttons');
+            container.innerHTML = '';
+            unitTypes.forEach(type => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${type.id}`;
+                btn.className = "btn-game flex flex-col items-center justify-center p-3 bg-white border-2 border-gray-300 rounded-3xl shadow hover:bg-blue-50 border-gray-400";
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    spawnAlly(type);
+                };
+                btn.innerHTML = `
+                    <span class="text-4xl mb-1">${type.icon}</span>
+                    <span class="text-[12px] font-black text-gray-500">${type.name}</span>
+                    <span class="text-lg text-blue-600 font-black">${type.cost}円</span>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function earnMoneyManually() {
+            if (isGameOver) return;
+            money += 10;
+            updateUI();
+        }
+
+        function handleStageClick(e) {
+            if (isGameOver) return;
+            earnMoneyManually();
+            
+            const stageRect = document.getElementById('stage').getBoundingClientRect();
+            const effect = document.createElement('div');
+            effect.className = 'click-effect';
+            effect.innerText = '+10えん';
+            effect.style.left = `${e.clientX - stageRect.left - 20}px`;
+            effect.style.top = `${e.clientY - stageRect.top - 20}px`;
+            document.getElementById('stage').appendChild(effect);
+            setTimeout(() => effect.remove(), 600);
+        }
+
+        function spawnAlly(type) {
+            if (isGameOver || money < type.cost) return;
+            money -= type.cost;
+            updateUI();
+
+            const el = document.createElement('div');
+            el.className = 'unit';
+            el.innerText = type.icon;
+            el.style.left = `${PLAYER_BASE_X + 40}px`;
+            document.getElementById('stage').appendChild(el);
+
+            allyUnits.push({
+                ...type,
+                currentHp: type.hp,
+                x: PLAYER_BASE_X + 40,
+                element: el
+            });
+        }
+
+        function spawnEnemy() {
+            if (isGameOver) return;
+            const levelRand = Math.random();
+            let type = enemyTypes[0];
+            if (levelRand > 0.93) type = enemyTypes[2];
+            else if (levelRand > 0.78) type = enemyTypes[1];
+
+            const levelMultiplier = 1 + (currentLevel - 1) * 0.22;
+            const scaledHp = type.hp * levelMultiplier;
+            const scaledAtk = type.atk * levelMultiplier;
+
+            const el = document.createElement('div');
+            el.className = 'unit';
+            el.innerText = type.icon;
+            el.style.left = `${ENEMY_BASE_X - 40}px`;
+            el.style.transform = 'scaleX(-1)';
+            document.getElementById('stage').appendChild(el);
+
+            enemyUnits.push({
+                ...type,
+                hp: scaledHp,
+                atk: scaledAtk,
+                currentHp: scaledHp,
+                x: ENEMY_BASE_X - 40,
+                element: el
+            });
+        }
+
+        function fireCannon() {
+            if (cannonCharge < 100 || isGameOver) return;
+            
+            cannonCharge = 0;
+            const laser = document.getElementById('laser-beam');
+            
+            laser.style.display = 'block';
+            laser.style.width = '0px';
+            
+            let beamWidth = 0;
+            const targetWidth = STAGE_WIDTH - 100;
+            const anim = setInterval(() => {
+                beamWidth += 50;
+                laser.style.width = `${beamWidth}px`;
+                if (beamWidth >= targetWidth) {
+                    clearInterval(anim);
+                    setTimeout(() => {
+                        laser.style.display = 'none';
+                    }, 400);
+                }
+            }, 16);
+
+            enemyUnits.forEach(e => {
+                e.currentHp -= 300;
+                e.element.classList.add('damage');
+                setTimeout(() => { if(e.element) e.element.classList.remove('damage')}, 200);
+            });
+            enemyHP -= 200;
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('money-display').innerText = Math.floor(money);
+            
+            unitTypes.forEach(type => {
+                const btn = document.getElementById(`btn-${type.id}`);
+                if (btn) {
+                    if (money < type.cost) btn.classList.add('disabled-btn');
+                    else btn.classList.remove('disabled-btn');
+                }
+            });
+
+            document.getElementById('player-hp-bar').style.width = `${(playerHP / MAX_HP) * 100}%`;
+            
+            const currentEnemyBaseMaxHP = MAX_HP * (1 + (currentLevel - 1) * 0.3);
+            document.getElementById('enemy-hp-bar').style.width = `${(enemyHP / currentEnemyBaseMaxHP) * 100}%`;
+            
+            const cannonBtn = document.getElementById('cannon-btn');
+            const gauge = document.getElementById('cannon-gauge');
+            gauge.style.width = `${cannonCharge}%`;
+            
+            if (cannonCharge >= 100) {
+                cannonBtn.disabled = false;
+                cannonBtn.classList.remove('disabled-btn');
+                cannonBtn.classList.add('animate-pulse', 'shadow-[0_0_20px_#3b82f6]');
+            } else {
+                cannonBtn.disabled = true;
+                cannonBtn.classList.add('disabled-btn');
+                cannonBtn.classList.remove('animate-pulse', 'shadow-[0_0_20px_#3b82f6]');
+            }
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            const spawnInterval = Math.max(1200, 4500 - (currentLevel - 1) * 200);
+            if (Date.now() - lastEnemySpawn > spawnInterval) {
+                spawnEnemy();
+                lastEnemySpawn = Date.now();
+            }
+
+            allyUnits.forEach((ally) => {
+                let canMove = true;
+                const collidingEnemy = enemyUnits.find(enemy => (enemy.x - ally.x) < 45 && (enemy.x - ally.x) > 0);
+                if (collidingEnemy) {
+                    canMove = false;
+                    collidingEnemy.currentHp -= ally.atk / 60;
+                    collidingEnemy.element.classList.add('damage');
+                    setTimeout(() => { if(collidingEnemy.element) collidingEnemy.element.classList.remove('damage')}, 100);
+                }
+                if (ally.x >= ENEMY_BASE_X - 55) {
+                    canMove = false;
+                    enemyHP -= ally.atk / 60;
+                }
+                if (canMove) {
+                    ally.x += ally.speed;
+                    ally.element.style.left = `${ally.x}px`;
+                }
+            });
+
+            enemyUnits.forEach((enemy) => {
+                let canMove = true;
+                const collidingAlly = allyUnits.find(ally => (enemy.x - ally.x) < 45 && (enemy.x - ally.x) > 0);
+                if (collidingAlly) {
+                    canMove = false;
+                    collidingAlly.currentHp -= enemy.atk / 60;
+                    collidingAlly.element.classList.add('damage');
+                    setTimeout(() => { if(collidingAlly.element) collidingAlly.element.classList.remove('damage')}, 100);
+                }
+                if (enemy.x <= PLAYER_BASE_X + 55) {
+                    canMove = false;
+                    playerHP -= enemy.atk / 60;
+                }
+                if (canMove) {
+                    enemy.x += enemy.speed;
+                    enemy.element.style.left = `${enemy.x}px`;
+                }
+            });
+
+            if (enemyHP <= 0) endGame(true);
+            if (playerHP <= 0) endGame(false);
+
+            allyUnits = allyUnits.filter(u => {
+                if (u.currentHp <= 0) {
+                    u.element.remove();
+                    return false;
+                }
+                return true;
+            });
+
+            enemyUnits = enemyUnits.filter(u => {
+                if (u.currentHp <= 0) {
+                    u.element.remove();
+                    return false;
+                }
+                return true;
+            });
+
+            updateUI();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame(isWin) {
+            if (isGameOver) return;
+            isGameOver = true;
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-message');
+            const retryBtn = document.getElementById('retry-btn');
+            
+            modal.classList.remove('hidden');
+            if (isWin) {
+                title.innerText = "かち！";
+                title.style.color = "#fbbf24";
+                msg.innerText = `おめでとう！ レベル ${currentLevel} をクリアしたよ！\nつぎのてきは もっとつよいぞ！`;
+                retryBtn.innerText = "つぎへ すすむ";
+                currentLevel++;
+            } else {
+                title.innerText = "まけ...";
+                title.style.color = "#ef4444";
+                msg.innerText = `ざんねん！ レベル ${currentLevel} で まけちゃった…。\nもういちど チャレンジしよう！`;
+                retryBtn.innerText = "もういちど やる";
+            }
+        }
+
+        window.onload = init;
+        window.onresize = () => {
+            STAGE_WIDTH = document.getElementById('stage').clientWidth;
+            ENEMY_BASE_X = STAGE_WIDTH - 100;
+        };
+    </script>
+</body>
+</html>

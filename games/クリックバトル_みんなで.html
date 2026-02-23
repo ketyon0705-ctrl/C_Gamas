@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>クリックバトル（みんなで）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;900&display=swap');
+
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .game-stage {
+            height: 50vh;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            position: relative;
+            border-bottom: 8px solid #3d8b40;
+            overflow: hidden;
+        }
+
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: #4caf50;
+            z-index: 1;
+        }
+
+        .base {
+            position: absolute;
+            bottom: 40px;
+            width: 100px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            z-index: 10;
+        }
+
+        .hp-bar-container {
+            width: 90px;
+            height: 12px;
+            background: #333;
+            border: 2px solid #fff;
+            margin-bottom: 8px;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4b2b, #ff416c);
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        .unit {
+            position: absolute;
+            bottom: 40px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            z-index: 5;
+        }
+
+        .unit.damage {
+            animation: damageFlash 0.2s;
+        }
+
+        @keyframes damageFlash {
+            0% {
+                filter: brightness(2) red(1);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        .btn-fancy {
+            background: #2563eb;
+            color: white;
+            font-weight: 900;
+            border-radius: 9999px;
+            box-shadow: 0 4px 0 #1e40af;
+            transition: all 0.1s;
+        }
+
+        .btn-fancy:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .btn-game {
+            transition: all 0.2s;
+            border-bottom-width: 6px;
+        }
+
+        .btn-game:active {
+            transform: translateY(4px);
+            border-bottom-width: 2px;
+        }
+
+        .disabled-btn {
+            filter: grayscale(1);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .rank-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 12px 20px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 350px;
+            border: 2px solid #ddd;
+        }
+    </style>
+</head>
+
+<body class="h-screen w-screen m-0 p-0 flex flex-col items-center">
+
+    <div id="game-container" class="relative w-full h-full overflow-hidden flex flex-col items-center">
+
+        <!-- Header -->
+        <div id="global-header"
+            class="w-full px-4 pt-[calc(env(safe-area-inset-top)+10px)] pointer-events-none z-[100] fixed top-0">
+            <div class="max-w-xl mx-auto flex items-center justify-between pointer-events-auto">
+                <a href="./../index.html"
+                    class="bg-white/60 backdrop-blur-md p-2 rounded-xl border border-white/30 shadow-lg text-xl">🏠</a>
+                <div id="game-info"
+                    class="hidden flex items-center gap-4 bg-gray-900/80 backdrop-blur-md rounded-2xl p-2 px-4 shadow-xl border border-blue-500/50">
+                    <div class="flex flex-col items-center">
+                        <span id="player-label" class="text-[10px] font-black text-blue-300">PLAYER</span>
+                        <span id="timer-display" class="text-lg font-black text-white tabular-nums">0.0s</span>
+                    </div>
+                    <div class="h-8 w-[1px] bg-white/20"></div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-[10px] font-bold text-yellow-400">MONEY</span>
+                        <span id="money-display" class="text-xl font-black text-yellow-300">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. Selection -->
+        <div id="mode-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center z-[150] bg-slate-100 p-6 text-center">
+            <h1 class="text-4xl font-black text-blue-600 mb-2">クリックバトル</h1>
+            <p class="text-gray-500 font-bold mb-8">みんなで 順番に たたかおう！</p>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <button onclick="selectPlayerCount(1)" class="btn-fancy py-6 text-3xl">1にん</button>
+                <button onclick="selectPlayerCount(2)" class="btn-fancy py-6 text-3xl">2にん</button>
+                <button onclick="selectPlayerCount(3)" class="btn-fancy py-6 text-3xl">3にん</button>
+                <button onclick="selectPlayerCount(4)" class="btn-fancy py-6 text-3xl">4にん</button>
+            </div>
+        </div>
+
+        <!-- 2. Names -->
+        <div id="name-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[150] bg-white p-6 text-center">
+            <h2 class="text-3xl font-black text-blue-600 mb-6">なまえを いれてね</h2>
+            <div id="name-inputs" class="w-full max-w-xs mb-8 space-y-3"></div>
+            <button onclick="confirmNames()" class="btn-fancy py-4 px-12 text-2xl bg-pink-500 shadow-xl">OK!</button>
+        </div>
+
+        <!-- 3. Ready -->
+        <div id="ready-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[150] bg-blue-50/95 p-6 text-center">
+            <h2 id="turn-title" class="text-4xl font-black text-blue-600 mb-4">なまえ の ばん</h1>
+                <button onclick="startPlay()"
+                    class="btn-fancy py-8 px-20 text-4xl bg-yellow-500 shadow-xl">スタート！</button>
+        </div>
+
+        <!-- 4. Game Play -->
+        <div id="play-view" class="hidden w-full h-full flex flex-col">
+            <div id="stage" class="game-stage w-full">
+                <div class="ground"></div>
+                <!-- Bases -->
+                <div class="base left-[20px]">
+                    <div class="hp-bar-container">
+                        <div id="player-hp-bar" class="hp-bar-fill"></div>
+                    </div>
+                    <div class="text-6xl drop-shadow-lg">🏰</div>
+                </div>
+                <div class="base right-[20px]">
+                    <div class="hp-bar-container">
+                        <div id="enemy-hp-bar" class="hp-bar-fill"></div>
+                    </div>
+                    <div class="text-6xl drop-shadow-lg text-red-500">😈</div>
+                </div>
+            </div>
+            <!-- Controls -->
+            <div class="flex-1 bg-slate-100 p-4 border-t-8 border-slate-300">
+                <div class="grid grid-cols-4 gap-2 mb-4">
+                    <button onclick="earnMoneyManually()"
+                        class="btn-game bg-yellow-400 py-3 rounded-2xl border-yellow-600 text-3xl shadow-lg">💰</button>
+                    <div id="spawn-buttons" class="col-span-3 grid grid-cols-3 gap-2"></div>
+                </div>
+                <button id="cannon-btn" onclick="fireCannon()"
+                    class="btn-game w-full bg-blue-600 text-white font-black py-4 rounded-3xl border-blue-800 text-lg disabled-btn">⚡️
+                    キャノン！</button>
+            </div>
+        </div>
+
+        <!-- 5. Turn Transition -->
+        <div id="turn-result-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[150] bg-white/95 p-6 text-center">
+            <h2 id="res-title" class="text-5xl font-black mb-4">こうたい！</h2>
+            <p id="res-msg" class="text-gray-700 text-2xl font-bold mb-8"></p>
+            <button onclick="nextPlayer()" class="btn-fancy py-5 px-12 text-2xl bg-blue-500">つぎのひとへ</button>
+        </div>
+
+        <!-- 6. Ranking -->
+        <div id="final-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[150] bg-white p-6 text-center">
+            <h1 class="text-4xl font-black text-yellow-600 mb-8">🎉 けっかはっぴょう</h1>
+            <div id="ranking-list" class="flex flex-col items-center w-full mb-10"></div>
+            <button onclick="location.reload()" class="btn-fancy bg-blue-500 py-4 px-10">もういちど</button>
+        </div>
+
+    </div>
+
+    <script>
+        const MAX_HP = 2000;
+        let players = [];
+        let playerCount = 1;
+        let currentPlayerIndex = 0;
+        let gameActive = false;
+
+        let money = 0, playerHP = MAX_HP, enemyHP = MAX_HP;
+        let startTime = 0, totalTime = 0, cannonCharge = 0;
+        let lastEnemySpawn = 0, gameLoopId = null;
+        let allyUnits = [], enemyUnits = [];
+
+        const unitTypes = [
+            { id: 'cat', icon: '🐱', cost: 50, hp: 120, atk: 15, speed: 2.2 },
+            { id: 'dog', icon: '🐶', cost: 180, hp: 450, atk: 40, speed: 1.6 },
+            { id: 'tiger', icon: '🐯', cost: 600, hp: 1300, atk: 100, speed: 1.2 }
+        ];
+
+        function selectPlayerCount(count) {
+            playerCount = count;
+            document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('name-screen').classList.remove('hidden');
+            const inputs = document.getElementById('name-inputs');
+            inputs.innerHTML = '';
+            for (let i = 1; i <= count; i++) {
+                inputs.innerHTML += `<input type="text" id="p${i}-name" value="プレイヤー${i}" class="w-full bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-lg font-bold outline-none">`;
+            }
+        }
+
+        function confirmNames() {
+            players = [];
+            for (let i = 1; i <= playerCount; i++) {
+                players.push({ name: document.getElementById(`p${i}-name`).value || `プレイヤー${i}`, score: 0, win: false, time: 999 });
+            }
+            currentPlayerIndex = 0;
+            document.getElementById('name-screen').classList.add('hidden');
+            showReadyScreen();
+        }
+
+        function showReadyScreen() {
+            document.getElementById('turn-result-screen').classList.add('hidden');
+            document.getElementById('play-view').classList.add('hidden');
+            document.getElementById('ready-screen').classList.remove('hidden');
+            document.getElementById('game-info').classList.add('hidden');
+            document.getElementById('turn-title').textContent = `${players[currentPlayerIndex].name} の ばん`;
+            renderButtons();
+        }
+
+        function startPlay() {
+            document.getElementById('ready-screen').classList.add('hidden');
+            document.getElementById('play-view').classList.remove('hidden');
+            document.getElementById('game-info').classList.remove('hidden');
+            document.getElementById('player-label').textContent = players[currentPlayerIndex].name;
+
+            // Reset
+            allyUnits.forEach(u => u.el.remove());
+            enemyUnits.forEach(u => u.el.remove());
+            allyUnits = []; enemyUnits = [];
+            money = 0; playerHP = MAX_HP; enemyHP = MAX_HP;
+            cannonCharge = 0; startTime = Date.now();
+            gameActive = true;
+            updateUI();
+            gameLoop();
+        }
+
+        function renderButtons() {
+            const container = document.getElementById('spawn-buttons');
+            container.innerHTML = '';
+            unitTypes.forEach(t => {
+                const b = document.createElement('button');
+                b.id = `btn-${t.id}`;
+                b.className = "btn-game bg-white border-2 border-slate-300 rounded-2xl flex flex-col items-center py-1";
+                b.onclick = () => spawnAlly(t);
+                b.innerHTML = `<span class="text-2xl">${t.icon}</span><span class="text-[10px] font-bold text-blue-600">${t.cost}円</span>`;
+                container.appendChild(b);
+            });
+        }
+
+        function earnMoneyManually() { if (gameActive) { money += 15; updateUI(); } }
+
+        function spawnAlly(t) {
+            if (!gameActive || money < t.cost) return;
+            money -= t.cost;
+            const el = document.createElement('div');
+            el.className = 'unit'; el.innerText = t.icon;
+            el.style.left = '100px';
+            document.getElementById('stage').appendChild(el);
+            allyUnits.push({ ...t, currentHp: t.hp, x: 100, el: el });
+            updateUI();
+        }
+
+        function spawnEnemy() {
+            const el = document.createElement('div');
+            el.className = 'unit'; el.innerText = ['👾', '👻', '👹'][Math.floor(Math.random() * 3)];
+            el.style.left = (document.getElementById('stage').clientWidth - 150) + 'px';
+            el.style.transform = 'scaleX(-1)';
+            document.getElementById('stage').appendChild(el);
+            const t = { hp: 150, atk: 12, speed: -1.8 };
+            enemyUnits.push({ ...t, currentHp: t.hp, x: document.getElementById('stage').clientWidth - 150, el: el, icon: el.innerText });
+        }
+
+        function fireCannon() {
+            if (cannonCharge < 100) return;
+            cannonCharge = 0;
+            enemyUnits.forEach(e => { e.currentHp -= 400; e.el.classList.add('damage'); setTimeout(() => e.el.classList.remove('damage'), 200); });
+            enemyHP -= 300;
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('money-display').textContent = Math.floor(money);
+            document.getElementById('player-hp-bar').style.width = `${(playerHP / MAX_HP) * 100}%`;
+            document.getElementById('enemy-hp-bar').style.width = `${(enemyHP / MAX_HP) * 100}%`;
+            document.getElementById('cannon-btn').disabled = cannonCharge < 100;
+            document.getElementById('cannon-btn').className = `btn-game w-full bg-blue-600 text-white font-black py-4 rounded-3xl border-blue-800 text-lg ${cannonCharge < 100 ? 'disabled-btn' : 'animate-pulse'}`;
+            unitTypes.forEach(t => { const b = document.getElementById(`btn-${t.id}`); if (b) money >= t.cost ? b.classList.remove('disabled-btn') : b.classList.add('disabled-btn'); });
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+            totalTime = (Date.now() - startTime) / 1000;
+            document.getElementById('timer-display').textContent = totalTime.toFixed(1) + 's';
+
+            if (Date.now() - lastEnemySpawn > 3000) { spawnEnemy(); lastEnemySpawn = Date.now(); }
+            money += 0.3; cannonCharge = Math.min(100, cannonCharge + 0.2);
+
+            allyUnits.forEach(a => {
+                let cm = true;
+                const e = enemyUnits.find(ex => (ex.x - a.x) < 45 && (ex.x - a.x) > 0);
+                if (e) { cm = false; e.currentHp -= a.atk / 60; e.el.classList.add('damage'); }
+                if (a.x > document.getElementById('stage').clientWidth - 120) { cm = false; enemyHP -= a.atk / 60; }
+                if (cm) { a.x += a.speed; a.el.style.left = a.x + 'px'; }
+            });
+            enemyUnits.forEach(e => {
+                let cm = true;
+                const a = allyUnits.find(ax => (e.x - ax.x) < 45 && (e.x - ax.x) > 0);
+                if (a) { cm = false; a.currentHp -= e.atk / 60; a.el.classList.add('damage'); }
+                if (e.x < 120) { cm = false; playerHP -= e.atk / 60; }
+                if (cm) { e.x += e.speed; e.el.style.left = e.x + 'px'; }
+            });
+
+            allyUnits = allyUnits.filter(u => { if (u.currentHp <= 0) { u.el.remove(); return false; } return true; });
+            enemyUnits = enemyUnits.filter(u => { if (u.currentHp <= 0) { u.el.remove(); return false; } return true; });
+
+            if (enemyHP <= 0) endTurn(true);
+            if (playerHP <= 0) endTurn(false);
+
+            updateUI();
+            if (gameActive) gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function endTurn(win) {
+            gameActive = false; cancelAnimationFrame(gameLoopId);
+            players[currentPlayerIndex].win = win;
+            players[currentPlayerIndex].time = totalTime;
+            players[currentPlayerIndex].score = Math.max(0, enemyHP);
+
+            document.getElementById('turn-result-screen').classList.remove('hidden');
+            document.getElementById('res-title').textContent = win ? "だいせいこう！ 🎉" : "ざんねん！ 💥";
+            document.getElementById('res-title').className = `text-5xl font-black mb-4 ${win ? 'text-green-500' : 'text-red-500'}`;
+            document.getElementById('res-msg').textContent = win ? `タイム: ${totalTime.toFixed(1)}びょう` : `のこりHP: ${Math.floor(enemyHP)}`;
+        }
+
+        function nextPlayer() {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < playerCount) showReadyScreen();
+            else showRanking();
+        }
+
+        function showRanking() {
+            document.getElementById('turn-result-screen').classList.add('hidden');
+            document.getElementById('play-view').classList.add('hidden');
+            document.getElementById('final-screen').classList.remove('hidden');
+            document.getElementById('game-info').classList.add('hidden');
+
+            const sorted = [...players].sort((a, b) => {
+                if (a.win && !b.win) return -1;
+                if (!a.win && b.win) return 1;
+                return a.win ? (a.time - b.time) : (a.score - b.score);
+            });
+
+            const list = document.getElementById('ranking-list');
+            list.innerHTML = '';
+            sorted.forEach((p, i) => {
+                const row = document.createElement('div');
+                row.className = 'rank-card';
+                row.innerHTML = `<span>${['🥇', '🥈', '🥉', '⚪'][i] || '⚪'} ${p.name}</span><span class="font-black text-blue-600">${p.win ? p.time.toFixed(1) + 's' : 'HP ' + Math.floor(p.score)}</span>`;
+                list.appendChild(row);
+            });
+        }
+    </script>
+</body>
+
+</html>

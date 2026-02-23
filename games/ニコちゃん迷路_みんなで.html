@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ニコちゃん迷路（みんなで）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: none;
+            overflow: hidden;
+            background-color: #fefce8;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+            margin: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        canvas {
+            background: #ffffff;
+            border: 6px solid #fbbf24;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            max-width: 95vw;
+            max-height: 50vh;
+            touch-action: none;
+        }
+
+        .joystick-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            background: rgba(0, 0, 0, 0.05);
+            border: 4px dashed rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+
+        .joystick-handle {
+            width: 70px;
+            height: 70px;
+            background: #fbbf24;
+            border: 5px solid #78350f;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .btn-fancy {
+            background: #2563eb;
+            color: white;
+            font-weight: 900;
+            border-radius: 9999px;
+            box-shadow: 0 4px 0 #1e40af;
+            transition: all 0.1s;
+        }
+
+        .btn-fancy:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .rank-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            padding: 12px 20px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+
+<body class="h-screen w-screen m-0 p-0 flex flex-col items-center">
+
+    <div id="game-container" class="relative w-full h-full overflow-hidden flex flex-col items-center">
+
+        <!-- Global Header -->
+        <div id="global-header"
+            class="w-full px-4 pt-[calc(env(safe-area-inset-top)+10px)] pointer-events-none z-[100] fixed top-0">
+            <div class="max-w-lg mx-auto flex items-center justify-between pointer-events-auto">
+                <a href="./../index.html"
+                    class="bg-white/40 backdrop-blur-md p-2 rounded-xl border border-white/30 shadow-lg text-xl">🏠</a>
+                <div id="game-info"
+                    class="hidden flex items-center gap-2 bg-white/40 backdrop-blur-md rounded-xl p-2 border border-white/30 shadow-lg">
+                    <span id="player-label" class="text-blue-600 font-black text-sm">PLAYER</span>
+                    <div class="h-6 w-[2px] bg-blue-200"></div>
+                    <span id="timer-display" class="text-lg font-black text-blue-600 tabular-nums">0.00s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. Selection Screen -->
+        <div id="mode-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-white/90 p-6 text-center">
+            <h1 class="text-4xl font-black text-yellow-600 mb-2">ニコちゃん迷路</h1>
+            <p class="text-gray-500 font-bold mb-8">みんなで タイムを きそいあおう！</p>
+            <p class="text-gray-700 text-xl font-bold mb-6">なんにんで あそぶ？</p>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <button onclick="selectPlayerCount(1)" class="btn-fancy py-6 text-3xl">1にん</button>
+                <button onclick="selectPlayerCount(2)" class="btn-fancy py-6 text-3xl">2にん</button>
+                <button onclick="selectPlayerCount(3)" class="btn-fancy py-6 text-3xl">3にん</button>
+                <button onclick="selectPlayerCount(4)" class="btn-fancy py-6 text-3xl">4にん</button>
+            </div>
+        </div>
+
+        <!-- 2. Name Entry -->
+        <div id="name-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-white p-6 text-center overflow-y-auto">
+            <h2 class="text-3xl font-black text-blue-600 mb-6 font-maru">なまえを いれてね</h2>
+            <div id="name-inputs" class="w-full max-w-xs mb-8 space-y-3"></div>
+            <button onclick="confirmNames()"
+                class="btn-fancy py-4 px-12 text-2xl bg-pink-500 hover:bg-pink-600 shadow-xl">きまり！</button>
+        </div>
+
+        <!-- 3. Ready Screen -->
+        <div id="ready-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-blue-50/95 p-6 text-center">
+            <h2 id="turn-title" class="text-4xl font-black text-blue-600 mb-4">なまえ の ばん</h1>
+                <p class="text-gray-700 text-xl font-bold mb-12">じゅんびは いいかな？</p>
+                <button onclick="startPlay()"
+                    class="btn-fancy py-8 px-20 text-4xl bg-yellow-500 hover:bg-yellow-600 text-white shadow-xl">スタート！</button>
+        </div>
+
+        <!-- 4. Game Screen -->
+        <div id="play-screen" class="hidden w-full h-full flex flex-col items-center justify-center pt-20">
+            <canvas id="gameCanvas"></canvas>
+            <div class="mt-8">
+                <div id="joystick-container" class="joystick-container">
+                    <div id="joystick-handle" class="joystick-handle"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Turn Transition -->
+        <div id="turn-result-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-white/95 p-6 text-center">
+            <h2 id="res-title" class="text-5xl font-black mb-4">おしまい！</h2>
+            <p id="res-msg" class="text-gray-700 text-2xl font-bold mb-12">タイム: --s</p>
+            <button id="next-btn" onclick="nextPlayer()" class="btn-fancy py-5 px-12 text-2xl bg-blue-500">つぎへ
+                すすむ</button>
+        </div>
+
+        <!-- 6. Final Ranking -->
+        <div id="final-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-white p-6 text-center">
+            <h1 class="text-4xl font-black text-yellow-600 mb-8">🎉 けっかはっぴょう</h1>
+            <div id="ranking-list" class="flex flex-col items-center w-full mb-10"></div>
+            <button onclick="location.reload()" class="btn-fancy bg-blue-500 py-4 px-10 text-xl">さいしょに もどる</button>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const joystick = document.getElementById('joystick-container');
+        const handle = document.getElementById('joystick-handle');
+        const timerDisplay = document.getElementById('timer-display');
+
+        // Logic Constants
+        const CW = 800, CH = 500;
+        canvas.width = CW; canvas.height = CH;
+
+        let players = [];
+        let playerCount = 1;
+        let currentPlayerIndex = 0;
+        let isPlaying = false;
+        let gameActive = false;
+        let startTime = 0;
+        let totalTime = 0;
+        let playerPos = { x: 90, y: 100, r: 28 };
+        let stickX = 0, stickY = 0, isDragging = false;
+        let animId = null;
+
+        const wallT = 30;
+        const walls = [
+            { x: 0, y: 0, w: CW, h: wallT },
+            { x: 0, y: CH - wallT, w: CW, h: wallT },
+            { x: 0, y: 0, w: wallT, h: CH },
+            { x: CW - wallT, y: 0, w: wallT, h: CH },
+            { x: 200, y: 0, w: 40, h: 320 },
+            { x: 400, y: 180, w: 40, h: 320 },
+            { x: 600, y: 0, w: 40, h: 350 }
+        ];
+        const goal = { x: CW - 120, y: CH - 130, w: 90, h: 100 };
+
+        function selectPlayerCount(count) {
+            playerCount = count;
+            document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('name-screen').classList.remove('hidden');
+            const inputs = document.getElementById('name-inputs');
+            inputs.innerHTML = '';
+            for (let i = 1; i <= count; i++) {
+                inputs.innerHTML += `<input type="text" id="p${i}-name" placeholder="${i}にんめの なまえ" value="プレイヤー${i}" class="w-full bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-lg font-bold outline-none focus:border-blue-400">`;
+            }
+        }
+
+        function confirmNames() {
+            players = [];
+            for (let i = 1; i <= playerCount; i++) {
+                players.push({ name: document.getElementById(`p${i}-name`).value || `プレイヤー${i}`, time: 999, success: false });
+            }
+            currentPlayerIndex = 0;
+            document.getElementById('name-screen').classList.add('hidden');
+            showReadyScreen();
+        }
+
+        function showReadyScreen() {
+            gameActive = false;
+            document.getElementById('turn-result-screen').classList.add('hidden');
+            document.getElementById('play-screen').classList.add('hidden');
+            document.getElementById('ready-screen').classList.remove('hidden');
+            document.getElementById('game-info').classList.add('hidden');
+            document.getElementById('turn-title').textContent = `${players[currentPlayerIndex].name} の ばん`;
+        }
+
+        function startPlay() {
+            document.getElementById('ready-screen').classList.add('hidden');
+            document.getElementById('play-screen').classList.remove('hidden');
+            document.getElementById('game-info').classList.remove('hidden');
+            document.getElementById('player-label').textContent = players[currentPlayerIndex].name;
+
+            playerPos = { x: 90, y: 100, r: 28 };
+            stickX = 0; stickY = 0;
+            resetJoystickPos();
+
+            startTime = Date.now();
+            isPlaying = true;
+            gameActive = true;
+            render();
+            gameLoop();
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            const now = Date.now();
+            totalTime = (now - startTime) / 1000;
+            timerDisplay.textContent = totalTime.toFixed(2) + 's';
+
+            const speed = 7;
+            const nx = playerPos.x + stickX * speed;
+            const ny = playerPos.y + stickY * speed;
+
+            if (checkWalls(nx, ny)) {
+                playerPos.x = nx; playerPos.y = ny;
+                endTurn('fail');
+                return;
+            }
+
+            playerPos.x = nx; playerPos.y = ny;
+
+            if (playerPos.x > goal.x && playerPos.x < goal.x + goal.w && playerPos.y > goal.y && playerPos.y < goal.y + goal.h) {
+                endTurn('win');
+                return;
+            }
+
+            render();
+            animId = requestAnimationFrame(gameLoop);
+        }
+
+        function checkWalls(nx, ny) {
+            for (let w of walls) {
+                const cx = Math.max(w.x, Math.min(nx, w.x + w.w));
+                const cy = Math.max(w.y, Math.min(ny, w.y + w.h));
+                if (((nx - cx) ** 2 + (ny - cy) ** 2) < playerPos.r ** 2) return true;
+            }
+            return false;
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, CW, CH);
+            ctx.fillStyle = '#4ade8022'; ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
+            ctx.fillStyle = '#166534'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText('GOAL!', goal.x + 10, goal.y + 55);
+            ctx.fillStyle = '#64748b'; walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+            drawSmiley(gameActive ? 'alive' : (players[currentPlayerIndex].success ? 'alive' : 'dead'));
+        }
+
+        function drawSmiley(state) {
+            ctx.save(); ctx.translate(playerPos.x, playerPos.y); ctx.beginPath();
+            ctx.arc(0, 0, playerPos.r, 0, Math.PI * 2); ctx.fillStyle = '#fbbf24'; ctx.fill();
+            ctx.strokeStyle = '#92400e'; ctx.lineWidth = 4; ctx.stroke();
+            if (state === 'dead') {
+                ctx.strokeStyle = '#92400e'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(0, 0); ctx.moveTo(0, -10); ctx.lineTo(-10, 0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(5, -10); ctx.lineTo(15, 0); ctx.moveTo(15, -10); ctx.lineTo(5, 0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 15, 10, 0, Math.PI, true); ctx.stroke();
+            } else {
+                ctx.fillStyle = '#92400e'; ctx.beginPath(); ctx.arc(-10, -8, 5, 0, Math.PI * 2); ctx.arc(10, -8, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, 5, 15, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function endTurn(res) {
+            gameActive = false;
+            cancelAnimationFrame(animId);
+            players[currentPlayerIndex].time = totalTime;
+            players[currentPlayerIndex].success = (res === 'win');
+
+            document.getElementById('turn-result-screen').classList.remove('hidden');
+            const title = document.getElementById('res-title');
+            const msg = document.getElementById('res-msg');
+            if (res === 'win') {
+                title.textContent = "やったー！ GOAL! 🎉"; title.className = "text-5xl font-black text-green-500 mb-4";
+                msg.textContent = `タイム: ${totalTime.toFixed(2)}びょう！`;
+            } else {
+                title.textContent = "ビリビリッ！しっぱい ⚡"; title.className = "text-5xl font-black text-red-500 mb-4";
+                msg.textContent = `つぎのひと がんばって！`;
+                if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+            }
+            render();
+        }
+
+        function nextPlayer() {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < playerCount) showReadyScreen();
+            else showRanking();
+        }
+
+        function showRanking() {
+            document.getElementById('turn-result-screen').classList.add('hidden');
+            document.getElementById('play-screen').classList.add('hidden');
+            document.getElementById('final-screen').classList.remove('hidden');
+            document.getElementById('game-info').classList.add('hidden');
+
+            const sorted = [...players].sort((a, b) => {
+                if (a.success && !b.success) return -1;
+                if (!a.success && b.success) return 1;
+                return a.time - b.time;
+            });
+
+            const list = document.getElementById('ranking-list');
+            list.innerHTML = '';
+            const medals = ['🥇', '🥈', '🥉', '⚪'];
+            sorted.forEach((p, i) => {
+                const row = document.createElement('div');
+                row.className = 'rank-card';
+                row.innerHTML = `
+                    <span class="text-xl font-bold">${medals[i] || '⚪'} ${p.name}</span>
+                    <span class="text-xl font-black ${p.success ? 'text-green-600' : 'text-gray-400'}">${p.success ? p.time.toFixed(2) + 's' : 'しっぱい'}</span>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // Joystick Logic
+        function moveJoystick(e) {
+            if (!isDragging || !gameActive) return;
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+            let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            let dx = clientX - centerX, dy = clientY - centerY;
+            const dist = Math.sqrt(dx * dx + dy * dy), maxDist = 50;
+            if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+            handle.style.transform = `translate(${dx}px, ${dy}px)`;
+            stickX = dx / maxDist; stickY = dy / maxDist;
+        }
+        function resetJoystickPos() { isDragging = false; handle.style.transform = `translate(0px, 0px)`; stickX = 0; stickY = 0; }
+        joystick.addEventListener('pointerdown', (e) => { isDragging = true; moveJoystick(e); });
+        window.addEventListener('pointermove', moveJoystick);
+        window.addEventListener('pointerup', resetJoystickPos);
+
+        render();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ニコちゃん迷路：壁に当たっちゃダメ！</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: none;
+            overflow: hidden;
+            background-color: #fefce8;
+            font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+        }
+        canvas {
+            background: #ffffff;
+            border: 6px solid #fbbf24;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 95vw;
+            max-height: 50vh;
+            touch-action: none;
+        }
+        #joystick-container {
+            position: relative;
+            width: 130px;
+            height: 130px;
+            background: rgba(0, 0, 0, 0.05);
+            border: 2px dashed rgba(0,0,0,0.1);
+            border-radius: 50%;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        #joystick-handle {
+            width: 65px;
+            height: 65px;
+            background: #fbbf24;
+            border: 4px solid #78350f;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 10;
+        }
+        .btn-large {
+            background: #fbbf24;
+            color: #78350f;
+            padding: 12px 40px;
+            border-radius: 50px;
+            font-weight: 800;
+            font-size: 1.4rem;
+            box-shadow: 0 5px 0 #d97706;
+            cursor: pointer;
+            border: none;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div class="h-16 flex items-center justify-center text-center">
+        <div id="msg" class="text-xl font-bold text-yellow-600">
+            カベに あたらないように すすめ！
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 操作スティック -->
+    <div id="joystick-container">
+        <div id="joystick-handle"></div>
+    </div>
+
+    <!-- 画面外のボタン -->
+    <div class="mt-6">
+        <button id="start-btn" class="btn-large">スタート！</button>
+        <button id="retry-btn" class="btn-large hidden" style="background-color: #ef4444; color: white; box-shadow: 0 5px 0 #b91c1c;">もう一回！</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msg = document.getElementById('msg');
+    const startBtn = document.getElementById('start-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const joystick = document.getElementById('joystick-container');
+    const handle = document.getElementById('joystick-handle');
+
+    // 内部解像度
+    const CW = 800;
+    const CH = 500;
+    canvas.width = CW;
+    canvas.height = CH;
+
+    let isPlaying = false;
+    let player = { x: 90, y: 100, r: 28 }; // 適度な大きさ
+    let animId = null;
+
+    // スティックの状態
+    let stickX = 0;
+    let stickY = 0;
+    let isDragging = false;
+
+    // 壁のレイアウト（当たり判定用）
+    const wallT = 30;
+    const walls = [
+        // 外枠
+        {x: 0, y: 0, w: CW, h: wallT},
+        {x: 0, y: CH-wallT, w: CW, h: wallT},
+        {x: 0, y: 0, w: wallT, h: CH},
+        {x: CW-wallT, y: 0, w: wallT, h: CH},
+        // 迷路の仕切り
+        {x: 200, y: 0, w: 40, h: 320},
+        {x: 400, y: 180, w: 40, h: 320},
+        {x: 600, y: 0, w: 40, h: 350}
+    ];
+
+    const goal = {x: CW-120, y: CH-130, w: 90, h: 100};
+
+    function drawSmiley(state) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.beginPath();
+        ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
+        ctx.strokeStyle = '#92400e';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        if (state === 'dead') {
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 3;
+            // X Eyes
+            ctx.beginPath();
+            ctx.moveTo(-10, -10); ctx.lineTo(0, 0);
+            ctx.moveTo(0, -10); ctx.lineTo(-10, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(5, -10); ctx.lineTo(15, 0);
+            ctx.moveTo(15, -10); ctx.lineTo(5, 0);
+            ctx.stroke();
+            // Mouth
+            ctx.beginPath();
+            ctx.arc(0, 15, 10, 0, Math.PI, true);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = '#92400e';
+            ctx.beginPath();
+            ctx.arc(-10, -8, 5, 0, Math.PI * 2);
+            ctx.arc(10, -8, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, 5, 15, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+
+        // スティック操作による移動
+        const speed = 6;
+        const nx = player.x + stickX * speed;
+        const ny = player.y + stickY * speed;
+
+        // 壁との衝突判定（当たったらアウト）
+        if (checkWalls(nx, ny)) {
+            player.x = nx; // 位置だけ更新して描画
+            player.y = ny;
+            endGame('fail');
+            return;
+        }
+
+        player.x = nx;
+        player.y = ny;
+
+        // ゴール判定
+        if (player.x > goal.x && player.x < goal.x + goal.w && player.y > goal.y && player.y < goal.y + goal.h) {
+            endGame('win');
+        }
+
+        render();
+        animId = requestAnimationFrame(gameLoop);
+    }
+
+    function checkWalls(nx, ny) {
+        for (let w of walls) {
+            const cx = Math.max(w.x, Math.min(nx, w.x + w.w));
+            const cy = Math.max(w.y, Math.min(ny, w.y + w.h));
+            if (((nx-cx)**2 + (ny-cy)**2) < player.r**2) return true;
+        }
+        return false;
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, CW, CH);
+        
+        // ゴール
+        ctx.fillStyle = '#4ade80';
+        ctx.globalAlpha = 0.4;
+        ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#166534';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText('GOAL!', goal.x + 10, goal.y + 55);
+
+        // 壁（背景）
+        ctx.fillStyle = '#64748b';
+        walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+
+        drawSmiley(isPlaying ? 'alive' : (msg.innerText.includes('やった') ? 'alive' : 'dead'));
+    }
+
+    function startGame() {
+        isPlaying = true;
+        player = { x: 90, y: 100, r: 28 };
+        msg.innerText = "カベに あたらないように！";
+        msg.className = "text-xl font-bold text-blue-600";
+        startBtn.classList.add('hidden');
+        retryBtn.classList.add('hidden');
+        if (animId) cancelAnimationFrame(animId);
+        gameLoop();
+    }
+
+    function endGame(res) {
+        isPlaying = false;
+        if (res === 'win') {
+            msg.innerText = "やったー！だいせいこう！ 🎉";
+            msg.className = "text-2xl font-bold text-green-500";
+        } else {
+            msg.innerText = "ビリビリ！ざんねん！ 😵⚡";
+            msg.className = "text-2xl font-bold text-red-500";
+        }
+        retryBtn.classList.remove('hidden');
+        render();
+    }
+
+    // ジョイスティック操作
+    function moveJoystick(e) {
+        if (!isDragging) return;
+        const rect = joystick.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+        let dx = clientX - centerX;
+        let dy = clientY - centerY;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        const maxDist = 45;
+
+        if (distance > maxDist) {
+            dx = (dx / distance) * maxDist;
+            dy = (dy / distance) * maxDist;
+        }
+
+        handle.style.transform = `translate(${dx}px, ${dy}px)`;
+        stickX = dx / maxDist;
+        stickY = dy / maxDist;
+    }
+
+    function resetJoystick() {
+        isDragging = false;
+        handle.style.transform = `translate(0px, 0px)`;
+        stickX = 0;
+        stickY = 0;
+    }
+
+    joystick.addEventListener('pointerdown', (e) => { isDragging = true; moveJoystick(e); });
+    window.addEventListener('pointermove', moveJoystick);
+    window.addEventListener('pointerup', resetJoystick);
+
+    startBtn.onclick = startGame;
+    retryBtn.onclick = startGame;
+
+    render();
+</script>
+
+</body>
+</html>
