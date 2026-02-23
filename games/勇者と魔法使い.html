@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./../manifest.json">
+    <link rel="apple-touch-icon" href="./../assets/icons/apple-touch-icon.png">
+    <title>プログラミング・メイズ：選ばれし勇者と賢者</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #f0f9ff;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .progress-bar-fill {
+            transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .grid-cell {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            min-height: 50px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .command-block {
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .command-block:active {
+            scale: 0.9;
+        }
+
+        .execution-highlight {
+            border-color: #facc15 !important;
+            background-color: #fef9c3 !important;
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        @keyframes house-grow {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.5);
+                filter: brightness(1.5);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .animate-grow {
+            animation: house-grow 0.8s ease-out;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .char-select-btn {
+            transition: all 0.3s;
+        }
+
+        .char-select-btn:hover {
+            transform: translateY(-5px) scale(1.05);
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Back Button -->
+    <a href="./../index.html"
+        class="fixed top-[36px] left-[26px] z-[100] bg-white/10 hover:bg-white/20 text-indigo-900 font-bold py-3 px-6 rounded-full shadow-lg border-2 border-indigo-900/20 pointer-events-auto flex items-center gap-2 transition-transform active:scale-95 backdrop-blur-sm">
+        <span class="text-2xl">🏠</span> もどる
+    </a>
+
+    <!-- Status Bar -->
+    <header
+        class="bg-indigo-600 text-white p-3 pt-[36px] border-b-4 border-black flex justify-between items-center z-50 shadow-md">
+        <div class="flex items-center space-x-3">
+            <div
+                class="bg-white text-indigo-600 w-10 h-10 flex items-center justify-center rounded-lg border-2 border-black font-bold text-xl">
+                <span id="level-display">1</span>
+            </div>
+            <div>
+                <div class="text-[10px] opacity-80 leading-none uppercase">Rank</div>
+                <div class="text-xs font-bold" id="title-badge">見習い冒険者</div>
+            </div>
+        </div>
+        <div class="flex-1 max-w-[200px] mx-4">
+            <div class="bg-indigo-900 h-4 rounded-full border-2 border-black overflow-hidden relative">
+                <div id="xp-bar" class="progress-bar-fill bg-yellow-400 h-full w-0"></div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="text-lg font-bold">💎<span id="gold-display">0</span></span>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 relative overflow-hidden flex flex-col">
+
+        <!-- Character Selection Overlay -->
+        <div id="char-selection-view"
+            class="absolute inset-0 bg-indigo-900/90 flex flex-col items-center justify-center z-[60] p-4 text-white">
+            <h2 class="text-3xl font-bold mb-8 text-center">キミのしょくぎょうを<br>えらんでね！</h2>
+            <div class="flex space-x-4 w-full max-w-md">
+                <button onclick="selectClass('hero')"
+                    class="char-select-btn flex-1 bg-white text-indigo-900 p-6 rounded-3xl border-4 border-orange-500 shadow-xl flex flex-col items-center">
+                    <span class="text-6xl mb-4">⚔️</span>
+                    <span class="text-xl font-bold">勇者</span>
+                    <span class="text-[10px] mt-2 opacity-70">けん と たて で たたかう！</span>
+                </button>
+                <button onclick="selectClass('wizard')"
+                    class="char-select-btn flex-1 bg-white text-indigo-900 p-6 rounded-3xl border-4 border-blue-500 shadow-xl flex flex-col items-center">
+                    <span class="text-6xl mb-4">🪄</span>
+                    <span class="text-xl font-bold">魔法使い</span>
+                    <span class="text-[10px] mt-2 opacity-70">ふしぎな まほう で たたかう！</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Home View -->
+        <div id="home-view"
+            class="absolute inset-0 bg-gradient-to-b from-sky-300 to-green-200 flex flex-col items-center justify-center z-20 transition-all duration-500 hidden">
+            <div class="text-center mb-6 fade-in">
+                <h2 class="text-3xl font-bold text-indigo-900 mb-1 drop-shadow-sm">キミの拠点</h2>
+                <p
+                    class="text-sm bg-white/70 px-4 py-1 rounded-full border border-indigo-200 inline-block font-bold text-indigo-800">
+                    冒険して家を大きくしよう！</p>
+            </div>
+
+            <div id="big-house" class="text-[140px] mb-6 drop-shadow-2xl transition-all duration-500">⛺</div>
+
+            <div id="home-player" class="text-7xl mb-10 filter drop-shadow-md">🧙</div>
+
+            <button onclick="startAdventure()"
+                class="bg-orange-500 text-white px-12 py-4 rounded-full border-b-8 border-orange-800 text-2xl font-bold hover:bg-orange-400 active:border-b-0 active:translate-y-2 transition-all shadow-2xl">
+                ぼうけんへ いく！ ⚔️
+            </button>
+        </div>
+
+        <!-- Adventure (Maze) View -->
+        <div id="adventure-view" class="absolute inset-0 bg-slate-200 hidden flex flex-col z-10">
+            <div class="w-full flex justify-between items-center p-4">
+                <span class="bg-white px-4 py-1 rounded-full border-2 border-black font-bold text-sm shadow-sm">
+                    ステージ <span id="stage-display">1</span>
+                </span>
+                <button onclick="returnToHome()"
+                    class="text-xs bg-red-100 px-4 py-1 rounded-full border-2 border-black font-bold hover:bg-red-200 active:translate-y-0.5 transition-all">にげる
+                    🏠</button>
+            </div>
+
+            <div class="flex-1 flex items-center justify-center p-4">
+                <div id="maze-container"
+                    class="bg-white p-1 border-4 border-black shadow-[10px_10px_0px_rgba(0,0,0,0.1)] rounded-2xl grid gap-0 relative overflow-hidden transition-all duration-300 w-fit h-fit">
+                    <!-- Grid cells generated by JS -->
+                </div>
+            </div>
+
+            <section
+                class="bg-white border-t-4 border-black h-[40%] min-h-[250px] flex flex-col p-3 shadow-[0_-10px_20px_rgba(0,0,0,0.1)]">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-bold text-indigo-800 flex items-center">
+                        <span class="mr-2">📜 魔法の命令</span>
+                        <span id="step-counter"
+                            class="text-[10px] bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">0命令</span>
+                    </h3>
+                    <div class="flex space-x-2">
+                        <button onclick="clearCommands()"
+                            class="bg-slate-100 px-3 py-1 rounded-lg border-2 border-black text-[10px] font-bold hover:bg-slate-200">やりなおし</button>
+                        <button id="run-btn" onclick="runProgram()"
+                            class="bg-green-500 text-white px-8 py-1 rounded-full border-4 border-black font-bold text-sm hover:bg-green-400 active:translate-y-1 transition-all shadow-md">じっこう！
+                            ▶️</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-1 space-x-3 overflow-hidden">
+                    <div class="w-28 bg-slate-50 p-2 rounded-xl border-2 border-black overflow-y-auto shadow-inner">
+                        <div class="space-y-2" id="command-palette">
+                            <button onclick="addCommand('up')"
+                                class="command-block w-full bg-blue-400 text-white p-2 rounded-lg border-2 border-black text-xs font-bold shadow-[3px_3px_0px_black]">⬆️
+                                うえ</button>
+                            <button onclick="addCommand('down')"
+                                class="command-block w-full bg-blue-400 text-white p-2 rounded-lg border-2 border-black text-xs font-bold shadow-[3px_3px_0px_black]">⬇️
+                                した</button>
+                            <button onclick="addCommand('left')"
+                                class="command-block w-full bg-blue-400 text-white p-2 rounded-lg border-2 border-black text-xs font-bold shadow-[3px_3px_0px_black]">⬅️
+                                ひだり</button>
+                            <button onclick="addCommand('right')"
+                                class="command-block w-full bg-blue-400 text-white p-2 rounded-lg border-2 border-black text-xs font-bold shadow-[3px_3px_0px_black]">➡️
+                                みぎ</button>
+                            <button id="attack-cmd-btn" onclick="addCommand('attack')"
+                                class="command-block w-full bg-red-400 text-white p-2 rounded-lg border-2 border-black text-xs font-bold shadow-[3px_3px_0px_black]">🪄
+                                まほう</button>
+                            <div id="locked-commands" class="opacity-30 pointer-events-none">
+                                <button
+                                    class="w-full bg-orange-400 text-white p-2 rounded-lg border-2 border-black text-[10px] font-bold shadow-[3px_3px_0px_black]">🔄
+                                    3回</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="program-queue"
+                        class="flex-1 bg-indigo-50/50 p-3 rounded-xl border-2 border-dashed border-indigo-200 flex flex-wrap content-start gap-2 overflow-y-auto">
+                        <p id="empty-hint" class="text-indigo-300 text-xs m-auto italic">命令をえらんでならべよう！</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="effect-layer" class="absolute inset-0 pointer-events-none z-40"></div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal"
+        class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-xs p-8 border-4 border-black rounded-[2rem] text-center shadow-2xl">
+            <div id="modal-icon" class="text-7xl mb-4 drop-shadow-md">✨</div>
+            <h2 id="modal-title" class="text-2xl font-bold mb-3 text-indigo-900">クリア！</h2>
+            <p id="modal-text" class="text-md text-gray-700 mb-8 font-bold leading-relaxed"></p>
+            <button onclick="closeModal()"
+                class="bg-indigo-600 text-white w-full py-4 rounded-2xl border-b-8 border-indigo-900 font-bold text-lg active:border-b-0 active:translate-y-2 transition-all">つぎへ！</button>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            level: 1, xp: 0, gold: 0, stage: 1,
+            playerPos: { x: 0, y: 0 },
+            enemyPos: { x: 0, y: 0 },
+            mazeSize: 5,
+            obstacles: [],
+            isRunning: false,
+            commandQueue: [],
+            isHome: true,
+            selectedClass: null // 'hero' or 'wizard'
+        };
+
+        const config = {
+            xpPerStage: 40,
+            xpToLevel: 100,
+            bases: ["⛺", "🏡", "🏯", "🏰", "🌌"],
+            avatars: {
+                hero: ["⚔️", "🛡️⚔️", "⚔️🛡️✨", "🛡️⚔️👑", "🔱🛡️🔥"],
+                wizard: ["🧙‍♀️", "🧙‍♀️✨", "🧙‍♀️🪄", "🧙‍♀️🪄💎", "👑🧙‍♀️🔥"]
+            },
+            titles: {
+                hero: ["見習い剣士", "迷宮の騎士", "熟練の勇者", "王国騎士団長", "伝説の勇者"],
+                wizard: ["見習い魔導士", "迷宮の探求者", "熟練の魔法使い", "大魔導士", "伝説の賢者"]
+            },
+            classActionNames: {
+                hero: "⚔️ こうげき",
+                wizard: "🪄 まほう"
+            }
+        };
+
+        // --- Class Selection ---
+        function selectClass(className) {
+            state.selectedClass = className;
+            document.getElementById('char-selection-view').classList.add('hidden');
+            document.getElementById('home-view').classList.remove('hidden');
+
+            // コマンドボタンのテキストを変更
+            const attackBtn = document.getElementById('attack-cmd-btn');
+            attackBtn.innerText = config.classActionNames[className];
+
+            updateUI();
+        }
+
+        // --- View Switching ---
+        function startAdventure() {
+            if (!state.selectedClass) return;
+            state.isHome = false;
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('adventure-view').classList.remove('hidden');
+            generateStage();
+            updateUI();
+        }
+
+        function returnToHome() {
+            state.isHome = true;
+            document.getElementById('home-view').classList.remove('hidden');
+            document.getElementById('adventure-view').classList.add('hidden');
+            updateUI();
+        }
+
+        // --- Maze Logic ---
+        function generateStage() {
+            state.mazeSize = Math.min(5 + Math.floor(state.stage / 3), 9);
+            let isPathPossible = false;
+            while (!isPathPossible) {
+                state.obstacles = [];
+                state.enemyPos = { x: state.mazeSize - 1, y: state.mazeSize - 1 };
+                const obsChance = 0.15 + (Math.min(state.stage, 10) * 0.01);
+                for (let y = 0; y < state.mazeSize; y++) {
+                    for (let x = 0; x < state.mazeSize; x++) {
+                        if ((x === 0 && y === 0) || (x === state.enemyPos.x && y === state.enemyPos.y)) continue;
+                        if (Math.random() < obsChance) state.obstacles.push({ x, y });
+                    }
+                }
+                if (checkPathExists(0, 0, state.enemyPos.x, state.enemyPos.y)) isPathPossible = true;
+            }
+            renderMaze();
+        }
+
+        function checkPathExists(startX, startY, endX, endY) {
+            const queue = [[startX, startY]];
+            const visited = new Set([`${startX},${startY}`]);
+            while (queue.length > 0) {
+                const [x, y] = queue.shift();
+                if (x === endX && y === endY) return true;
+                const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                for (const [dx, dy] of dirs) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < state.mazeSize && ny >= 0 && ny < state.mazeSize && !visited.has(`${nx},${ny}`) && !state.obstacles.some(o => o.x === nx && o.y === ny)) {
+                        visited.add(`${nx},${ny}`);
+                        queue.push([nx, ny]);
+                    }
+                }
+            }
+            return false;
+        }
+
+        function renderMaze() {
+            const container = document.getElementById('maze-container');
+            container.style.gridTemplateColumns = `repeat(${state.mazeSize}, 50px)`;
+            container.innerHTML = '';
+            const avatarList = config.avatars[state.selectedClass];
+            const currentAvatar = avatarList[Math.min(Math.floor((state.level - 1) / 3), avatarList.length - 1)];
+
+            for (let y = 0; y < state.mazeSize; y++) {
+                for (let x = 0; x < state.mazeSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.id = `cell-${x}-${y}`;
+                    if (state.obstacles.some(o => o.x === x && o.y === y)) cell.innerText = "🪨";
+                    else if (x === 0 && y === 0) cell.innerHTML = `<span id="maze-player" class="transition-all duration-300 transform inline-block">${currentAvatar}</span>`;
+                    else if (x === state.enemyPos.x && y === state.enemyPos.y) cell.innerHTML = `<span id="maze-enemy" class="animate-bounce inline-block">👾</span>`;
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        // --- Command Execution ---
+        function addCommand(type) { if (!state.isRunning) { state.commandQueue.push(type); renderQueue(); } }
+        function clearCommands() { if (!state.isRunning) { state.commandQueue = []; renderQueue(); } }
+        function renderQueue() {
+            const container = document.getElementById('program-queue');
+            container.innerHTML = state.commandQueue.length > 0 ? '' : '<p id="empty-hint" class="text-indigo-300 text-[10px] m-auto italic">命令をえらんでならべよう！</p>';
+            state.commandQueue.forEach((cmd, idx) => {
+                const icons = { up: '⬆️', down: '⬇️', left: '⬅️', right: '➡️', attack: (state.selectedClass === 'hero' ? '⚔️' : '🪄'), loop: '🔄' };
+                const colors = { up: 'bg-blue-400', down: 'bg-blue-400', left: 'bg-blue-400', right: 'bg-blue-400', attack: 'bg-red-400', loop: 'bg-orange-400' };
+                container.innerHTML += `<div class="p-2 ${colors[cmd]} text-white border-2 border-black rounded-lg text-[10px] font-bold shadow-[2px_2px_0px_black]">${icons[cmd]}</div>`;
+            });
+            document.getElementById('step-counter').innerText = `${state.commandQueue.length}命令`;
+        }
+
+        async function runProgram() {
+            if (state.isRunning || state.commandQueue.length === 0) return;
+            state.isRunning = true;
+            document.getElementById('run-btn').disabled = true;
+            let flatQueue = [];
+            for (let i = 0; i < state.commandQueue.length; i++) {
+                if (state.commandQueue[i] === 'loop') {
+                    const next = state.commandQueue[i + 1];
+                    if (next) { flatQueue.push({ type: next, idx: i + 1 }, { type: next, idx: i + 1 }, { type: next, idx: i + 1 }); i++; }
+                } else flatQueue.push({ type: state.commandQueue[i], idx: i });
+            }
+
+            let curX = 0, curY = 0;
+            const p = document.getElementById('maze-player');
+            for (let i = 0; i < flatQueue.length; i++) {
+                highlightCommand(flatQueue[i].idx);
+                let nX = curX, nY = curY;
+                if (flatQueue[i].type === 'up') nY--;
+                else if (flatQueue[i].type === 'down') nY++;
+                else if (flatQueue[i].type === 'left') nX--;
+                else if (flatQueue[i].type === 'right') nX++;
+                else if (flatQueue[i].type === 'attack') {
+                    spawnEffect(p.parentElement, (state.selectedClass === 'hero' ? "⚔️" : "✨"));
+                    await sleep(500);
+                    if (curX === state.enemyPos.x && curY === state.enemyPos.y) { await handleWin(); return; }
+                    continue;
+                }
+                if (nX >= 0 && nX < state.mazeSize && nY >= 0 && nY < state.mazeSize && !state.obstacles.some(o => o.x === nX && o.y === nY)) {
+                    curX = nX; curY = nY; document.getElementById(`cell-${curX}-${curY}`).appendChild(p);
+                    await sleep(400);
+                } else { spawnEffect(p.parentElement, "💢"); await sleep(500); }
+            }
+            await sleep(500);
+            showModal("ざんねん！", "ゴールまで たどりつけなかったぞ...\nもういちど 命令を考えよう！", "🤔");
+            resetPlayer();
+        }
+
+        async function handleWin() {
+            const enemy = document.getElementById('maze-enemy');
+            if (enemy) { enemy.style.transform = "scale(2)"; enemy.style.opacity = "0"; }
+            await sleep(800);
+
+            state.stage++;
+            state.gold += 50;
+            gainXP(config.xpPerStage);
+
+            returnToHome();
+            const house = document.getElementById('big-house');
+            house.classList.add('animate-grow');
+            spawnEffect(house.parentElement, "🔨✨");
+
+            showModal("ただいま！", `冒険をクリアしたぞ！\nキミの家が少し大きくなったみたいだ！`, "🎉");
+            resetPlayer();
+            clearCommands();
+            setTimeout(() => house.classList.remove('animate-grow'), 1000);
+        }
+
+        function resetPlayer() {
+            state.isRunning = false;
+            document.getElementById('run-btn').disabled = false;
+            const startCell = document.getElementById('cell-0-0');
+            const p = document.getElementById('maze-player');
+            if (p && startCell) startCell.appendChild(p);
+            clearHighlights();
+        }
+
+        function gainXP(amount) {
+            state.xp += amount;
+            if (state.xp >= config.xpToLevel) {
+                state.level++; state.xp -= config.xpToLevel;
+                if (state.level === 3) unlockLoop();
+            }
+            updateUI();
+        }
+
+        function unlockLoop() {
+            const locked = document.getElementById('locked-commands');
+            locked.innerHTML = `<button onclick="addCommand('loop')" class="command-block w-full bg-orange-400 text-white p-2 rounded-lg border-2 border-black text-[10px] font-bold shadow-[3px_3px_0px_black]">🔄 つぎを3回</button>`;
+            locked.classList.remove('opacity-30', 'pointer-events-none');
+        }
+
+        function updateUI() {
+            if (!state.selectedClass) return;
+
+            document.getElementById('level-display').innerText = state.level;
+            document.getElementById('gold-display').innerText = state.gold;
+            document.getElementById('stage-display').innerText = state.stage;
+            document.getElementById('xp-bar').style.width = `${(state.xp / config.xpToLevel) * 100}%`;
+
+            const rankIdx = Math.min(Math.floor((state.level - 1) / 3), 4);
+            document.getElementById('title-badge').innerText = config.titles[state.selectedClass][rankIdx];
+
+            const houseEmoji = config.bases[Math.min(Math.floor((state.level - 1) / 4), 4)];
+            document.getElementById('big-house').innerText = houseEmoji;
+
+            const avatarList = config.avatars[state.selectedClass];
+            document.getElementById('home-player').innerText = avatarList[rankIdx];
+        }
+
+        function spawnEffect(parent, emoji) {
+            const span = document.createElement('span');
+            span.innerText = emoji; span.className = 'absolute text-4xl animate-bounce z-50 pointer-events-none';
+            parent.appendChild(span);
+            setTimeout(() => span.remove(), 800);
+        }
+
+        function highlightCommand(idx) {
+            clearHighlights();
+            const queue = document.getElementById('program-queue').children;
+            if (queue[idx]) queue[idx].classList.add('execution-highlight');
+        }
+
+        function clearHighlights() {
+            const queue = document.getElementById('program-queue').children;
+            for (let el of queue) el.classList.remove('execution-highlight');
+        }
+
+        function showModal(title, text, icon) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerText = text;
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    </script>
+</body>
+
+</html>
