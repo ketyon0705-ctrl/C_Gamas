@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
+    <title>C_Gamas ゲームポータル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background: linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .game-card {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .game-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .game-card:active {
+            transform: scale(0.95);
+        }
+
+        .bg-pattern {
+            background-image: radial-gradient(#ffffff 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-pattern p-6 flex flex-col items-center">
+
+    <!-- Header -->
+    <header class="text-center mb-12 mt-8">
+        <h1 class="text-5xl md:text-6xl font-black text-orange-500 mb-4 animate-float">
+            C_Gamas<br><span class="text-4xl md:text-5xl">ゲームポータル</span>
+        </h1>
+        <p class="text-xl text-gray-600 font-bold">すきな ゲームを えらんでね！</p>
+    </header>
+
+    <!-- Game List -->
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl mb-16">
+
+        <!-- Game 1 -->
+        <a href="./games/くだものあつめ.html"
+            class="game-card bg-white rounded-[2.5rem] p-8 text-center border-4 border-orange-300 shadow-xl group">
+            <div class="text-7xl mb-4 group-hover:scale-110 transition-transform">🍎</div>
+            <h2 class="text-3xl font-black text-orange-600 mb-2">くだものあつめ</h2>
+            <p class="text-gray-500 font-bold">おいしい くだものを<br>たくさん あつめよう！</p>
+        </a>
+
+        <!-- Game 2 -->
+        <a href="./games/しゃぼん玉ぽんぽん.html"
+            class="game-card bg-white rounded-[2.5rem] p-8 text-center border-4 border-blue-300 shadow-xl group">
+            <div class="text-7xl mb-4 group-hover:scale-110 transition-transform">🫧</div>
+            <h2 class="text-3xl font-black text-blue-600 mb-2">しゃぼん玉ぽんぽん</h2>
+            <p class="text-gray-500 font-bold">ふわふわ しゃぼん玉を<br>タッチして わろう！</p>
+        </a>
+
+        <!-- Game 3 -->
+        <a href="./games/クレーンゲーム.html"
+            class="game-card bg-white rounded-[2.5rem] p-8 text-center border-4 border-yellow-300 shadow-xl group">
+            <div class="text-7xl mb-4 group-hover:scale-110 transition-transform">💎</div>
+            <h2 class="text-3xl font-black text-yellow-600 mb-2">クレーンゲーム</h2>
+            <p class="text-gray-500 font-bold">むずかしいけど たのしい！<br>ほうせきを ゲットしてね！</p>
+        </a>
+
+        <!-- Game 4 -->
+        <a href="./games/モンスターバスター.html"
+            class="game-card bg-white rounded-[2.5rem] p-8 text-center border-4 border-indigo-300 shadow-xl group">
+            <div class="text-7xl mb-4 group-hover:scale-110 transition-transform">👾</div>
+            <h2 class="text-3xl font-black text-indigo-600 mb-2">モンスターバスター</h2>
+            <p class="text-gray-500 font-bold">ロケットを うごかして<br>モンスターを やっつけろ！</p>
+        </a>
+
+        <!-- Game 5 -->
+        <a href="./games/ほしぞらジャンプ.html"
+            class="game-card bg-white rounded-[2.5rem] p-8 text-center border-4 border-purple-300 shadow-xl group">
+            <div class="text-7xl mb-4 group-hover:scale-110 transition-transform">🚀</div>
+            <h2 class="text-3xl font-black text-purple-600 mb-2">ほしぞらジャンプ</h2>
+            <p class="text-gray-500 font-bold">みんなで いっしょに！<br>どこまで たかく とべるかな？</p>
+        </a>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-gray-400 text-sm pb-8 font-bold">
+        © 2026 C_Gamas Kids Games
+    </footer>
+
+</body>
+
+</html>

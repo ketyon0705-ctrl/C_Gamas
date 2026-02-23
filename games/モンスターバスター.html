@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./../manifest.json">
+    <link rel="apple-touch-icon" href="./../assets/icons/apple-touch-icon.png">
+    <title>モンスターバスター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: none;
+            overflow: hidden;
+            background: #000814;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        #starfield {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .ship {
+            position: absolute;
+            font-size: 3.5rem;
+            z-index: 20;
+            transition: transform 0.1s;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 6px;
+            height: 20px;
+            background: #00f2ff;
+            box-shadow: 0 0 10px #00f2ff;
+            border-radius: 3px;
+            z-index: 15;
+        }
+
+        .enemy {
+            position: absolute;
+            font-size: 2.5rem;
+            z-index: 10;
+        }
+
+        .explosion {
+            position: absolute;
+            font-size: 3rem;
+            z-index: 25;
+            animation: explode 0.5s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .btn-fancy {
+            background: #2563eb;
+            color: white;
+            font-weight: 900;
+            border-radius: 9999px;
+            box-shadow: 0 4px 0 #1e40af;
+            transition: all 0.1s;
+        }
+
+        .btn-fancy:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .input-field {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #3b82f6;
+            color: white;
+            padding: 12px;
+            border-radius: 12px;
+            width: 100%;
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+            outline: none;
+        }
+
+        .rank-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            padding: 15px 25px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body class="m-0 p-0 text-white">
+
+    <!-- Back Button -->
+    <a href="./../index.html"
+        class="fixed top-[36px] left-[26px] z-[100] bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-full shadow-lg border-2 border-white/20 pointer-events-auto flex items-center gap-2 transition-transform active:scale-95 backdrop-blur-sm">
+        <span class="text-2xl">🏠</span> もどる
+    </a>
+
+    <div id="game-container" class="relative w-full h-screen overflow-hidden bg-black">
+        <canvas id="starfield"></canvas>
+
+        <!-- 1. Selection -->
+        <div id="mode-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-slate-900 p-6 text-center">
+            <h1 class="text-4xl font-black text-cyan-400 mb-2">モンスターバスター</h1>
+            <p class="text-white text-xl mb-8">なんにんで あそぶ？</p>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <button onclick="selectPlayerCount(1)" class="btn-fancy py-6 text-3xl">1にん</button>
+                <button onclick="selectPlayerCount(2)" class="btn-fancy py-6 text-3xl">2にん</button>
+                <button onclick="selectPlayerCount(3)" class="btn-fancy py-6 text-3xl">3にん</button>
+                <button onclick="selectPlayerCount(4)" class="btn-fancy py-6 text-3xl">4にん</button>
+            </div>
+        </div>
+
+        <!-- 2. Name Entry -->
+        <div id="name-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-slate-900 p-6 text-center overflow-y-auto">
+            <h2 class="text-3xl font-black text-cyan-400 mb-6">なまえを いれてね</h2>
+            <div id="name-inputs" class="w-full max-w-xs mb-8"></div>
+            <button id="confirm-names-btn" class="btn-fancy py-4 px-12 text-2xl">きまり！</button>
+        </div>
+
+        <!-- 3. Ready -->
+        <div id="ready-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-blue-900/90 p-6 text-center">
+            <h2 id="turn-title" class="text-4xl font-black text-white mb-4">なまえ の ばん</h2>
+            <p class="text-cyan-200 text-xl mb-12">じゅんびは いいかな？</p>
+            <button id="start-btn" class="btn-fancy py-8 px-20 text-4xl bg-cyan-500 shadow-cyan-900">スタート！</button>
+        </div>
+
+        <!-- Game UI -->
+        <div id="game-ui"
+            class="hidden absolute top-0 left-0 w-full pt-[36px] pr-[26px] flex justify-end items-start z-40 pointer-events-none gap-4">
+            <div class="flex flex-col gap-2">
+                <div class="bg-blue-900/80 rounded-2xl p-2 border border-cyan-400">
+                    <p id="current-player-display" class="text-xs text-cyan-300 font-bold">なまえ</p>
+                </div>
+                <div
+                    class="bg-blue-900/80 rounded-2xl p-3 border-2 border-cyan-400 shadow-[0_0_15px_rgba(0,242,255,0.3)]">
+                    <p class="text-sm text-cyan-300 font-bold">スコア</p>
+                    <p id="score-display" class="text-3xl font-black text-white">0</p>
+                </div>
+                <div class="bg-red-900/80 rounded-2xl p-2 border border-red-500">
+                    <p id="life-display" class="text-xl font-black text-white text-center">❤️❤️❤️</p>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="game-canvas" class="hidden absolute inset-0"></canvas>
+
+
+        <!-- 5. Result -->
+        <div id="turn-result-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-slate-900/95 p-6 text-center">
+            <h2 class="text-4xl font-black text-red-400 mb-4">ゲームオーバー！</h2>
+            <div id="player-score-msg" class="text-white text-2xl mb-12">なまえ は 500てん とったよ！</div>
+            <button id="next-player-btn" class="btn-fancy py-5 px-12 text-2xl">つぎへ すすむ</button>
+        </div>
+
+        <!-- 6. Final -->
+        <div id="final-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-slate-900 p-6 text-center">
+            <h1 class="text-4xl font-black text-cyan-400 mb-8">🎉 けっかはっぴょう</h1>
+            <div id="ranking-list" class="flex flex-col items-center w-full mb-10"></div>
+            <button id="restart-btn"
+                class="bg-blue-600 text-white font-black py-4 px-10 rounded-full text-xl shadow-lg active:scale-95">
+                さいしょに もどる
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const lifeDisplay = document.getElementById('life-display');
+        const modeScreen = document.getElementById('mode-screen');
+        const nameScreen = document.getElementById('name-screen');
+        const readyScreen = document.getElementById('ready-screen');
+        const turnResultScreen = document.getElementById('turn-result-screen');
+        const finalScreen = document.getElementById('final-screen');
+        const gameUI = document.getElementById('game-ui');
+
+        let playerCount = 1;
+        let players = [];
+        let currentPlayerIndex = 0;
+        let score = 0;
+        let lives = 3;
+        let gameActive = false;
+        let frameCount = 0;
+        let isPressing = false;
+
+        let player = { x: 0, y: 0, targetX: 0, size: 60, powerUp: 0, allies: [], lastShot: 0 };
+        let bullets = [];
+        let enemies = [];
+        let items = [];
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width / 2;
+            player.targetX = player.x;
+            player.y = canvas.height - 120;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Bullet {
+            constructor(x, y, angle, speed = 12, isAlly = false) {
+                this.x = x; this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = 8;
+                this.color = isAlly ? '#fbbf24' : '#00f2ff';
+                this.toRemove = false;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.y < -50 || this.x < -50 || this.x > canvas.width + 50 || this.y > canvas.height + 50) this.toRemove = true;
+            }
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor() {
+                this.size = 40 + Math.random() * 30;
+                this.x = Math.random() * (canvas.width - this.size) + this.size / 2;
+                this.y = -this.size;
+                this.speed = 2 + Math.random() * 2 + (score / 1500);
+                this.emoji = ['👾', '👹', '👻', '👽', '🕷️'][Math.floor(Math.random() * 5)];
+                this.health = this.size > 55 ? 2 : 1;
+                this.toRemove = false;
+            }
+            update() {
+                this.y += this.speed;
+                if (this.y > canvas.height + this.size) {
+                    this.toRemove = true;
+                    damagePlayer();
+                }
+            }
+            draw() {
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x, this.y);
+            }
+        }
+
+        class Item {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.size = 40; this.vy = 2.5; this.angle = 0; this.toRemove = false;
+                const rand = Math.random();
+                if (rand < 0.4) { this.type = 'HEART'; this.emoji = '❤️'; }
+                else if (rand < 0.7) { this.type = 'POWER'; this.emoji = '💎'; }
+                else { this.type = 'ALLY'; this.emoji = '🤖'; }
+            }
+            update() {
+                this.y += this.vy; this.angle += 0.05;
+                this.x += Math.sin(this.angle) * 1.5;
+                if (this.y > canvas.height + 50) this.toRemove = true;
+            }
+            draw() {
+                ctx.save();
+                ctx.font = '45px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 15; ctx.shadowColor = 'white';
+                ctx.fillText(this.emoji, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 1.0; this.color = color; this.toRemove = false;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy; this.life -= 0.05;
+                if (this.life <= 0) this.toRemove = true;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class Ally {
+            constructor(offset) { this.offsetX = offset; this.lastShot = 0; }
+            update() {
+                this.x = player.x + this.offsetX;
+                this.y = player.y + 20;
+                if (gameActive && Date.now() - this.lastShot > 800) {
+                    bullets.push(new Bullet(this.x, this.y, -Math.PI / 2, 10, true));
+                    this.lastShot = Date.now();
+                }
+            }
+            draw() {
+                ctx.font = '35px Arial'; ctx.fillText('🤖', this.x, this.y);
+            }
+        }
+
+        function shoot() {
+            if (!gameActive) return;
+            const now = Date.now();
+            if (now - player.lastShot < 150) return;
+            const angle = -Math.PI / 2;
+            if (player.powerUp > 0) {
+                bullets.push(new Bullet(player.x, player.y, angle));
+                bullets.push(new Bullet(player.x, player.y, angle - 0.2));
+                bullets.push(new Bullet(player.x, player.y, angle + 0.2));
+                player.powerUp--;
+            } else {
+                bullets.push(new Bullet(player.x, player.y, angle));
+            }
+            player.lastShot = now;
+        }
+
+        function damagePlayer() {
+            lives--;
+            lifeDisplay.innerText = '❤️'.repeat(Math.max(0, lives));
+            createExplosion(player.x, player.y, 'red');
+            if (lives <= 0) endGame();
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 8; i++) particles.push(new Particle(x, y, color));
+        }
+
+        // Mode screen and name input
+        function selectPlayerCount(count) {
+            playerCount = count;
+            modeScreen.classList.add('hidden');
+            nameScreen.classList.remove('hidden');
+            const nameInputs = document.getElementById('name-inputs');
+            nameInputs.innerHTML = '';
+            for (let i = 1; i <= count; i++) {
+                const input = document.createElement('input');
+                input.className = 'input-field';
+                input.placeholder = `${i}にんめの なまえ`;
+                input.value = `プレイヤー${i}`; input.id = `p${i}-name`;
+                nameInputs.appendChild(input);
+            }
+        }
+
+        document.getElementById('confirm-names-btn').onclick = () => {
+            players = [];
+            for (let i = 1; i <= playerCount; i++) {
+                const name = document.getElementById(`p${i}-name`).value || `${i}にんめ`;
+                players.push({ name: name, score: 0 });
+            }
+            currentPlayerIndex = 0;
+            nameScreen.classList.add('hidden');
+            showReadyScreen();
+        };
+
+        function showReadyScreen() {
+            turnResultScreen.classList.add('hidden');
+            readyScreen.classList.remove('hidden');
+            document.getElementById('turn-title').textContent = `${players[currentPlayerIndex].name} の ばん`;
+        }
+
+        document.getElementById('start-btn').onclick = () => {
+            score = 0; lives = 3; frameCount = 0;
+            updateUI();
+            document.getElementById('current-player-display').textContent = players[currentPlayerIndex].name;
+            readyScreen.classList.add('hidden');
+            gameUI.classList.remove('hidden');
+            canvas.classList.remove('hidden');
+
+            bullets = []; enemies = []; items = []; particles = [];
+            player.powerUp = 0; player.allies = [];
+            player.x = canvas.width / 2; player.targetX = player.x;
+            gameActive = true;
+        };
+
+        function updateUI() {
+            scoreDisplay.textContent = score;
+            lifeDisplay.textContent = '❤️'.repeat(lives);
+        }
+
+        function update() {
+            if (!gameActive) return;
+            frameCount++;
+            player.x += (player.targetX - player.x) * 0.2;
+            if (isPressing) shoot();
+
+            const spawnRate = Math.max(20, 50 - Math.floor(score / 500));
+            if (frameCount % spawnRate === 0) enemies.push(new Enemy());
+
+            bullets.forEach(b => b.update());
+            enemies.forEach(e => e.update());
+            items.forEach(item => item.update());
+            particles.forEach(p => p.update());
+            player.allies.forEach(ally => ally.update());
+
+            // Bullet vs Enemy
+            bullets.forEach(b => {
+                enemies.forEach(e => {
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < e.size / 2 + b.size) {
+                        e.health--; b.toRemove = true;
+                        createExplosion(e.x, e.y, '#f87171');
+                        if (e.health <= 0) {
+                            score += 100;
+                            updateUI();
+                            if (Math.random() < 0.2) items.push(new Item(e.x, e.y));
+                            e.toRemove = true;
+                        }
+                    }
+                });
+            });
+
+            // Item vs Player
+            items.forEach(item => {
+                if (Math.hypot(item.x - player.x, item.y - player.y) < 60) {
+                    applyItem(item.type); item.toRemove = true;
+                }
+            });
+
+            // Enemy vs Player
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - player.x, e.y - player.y) < 50) {
+                    e.toRemove = true; damagePlayer();
+                }
+            });
+
+            bullets = bullets.filter(b => !b.toRemove);
+            enemies = enemies.filter(e => !e.toRemove);
+            items = items.filter(i => !i.toRemove);
+            particles = particles.filter(p => !p.toRemove);
+        }
+
+        function applyItem(type) {
+            if (type === 'HEART' && lives < 5) lives++;
+            else if (type === 'POWER') player.powerUp += 20;
+            else if (type === 'ALLY' && player.allies.length < 2) {
+                player.allies.push(new Ally(player.allies.length === 0 ? -80 : 80));
+            }
+            updateUI();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000814'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Stars
+            ctx.fillStyle = '#ffffff33';
+            for (let i = 0; i < 20; i++) {
+                ctx.beginPath();
+                ctx.arc((i * 137) % canvas.width, (frameCount * 1.5 + i * 200) % canvas.height, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            particles.forEach(p => p.draw());
+            items.forEach(item => item.draw());
+            enemies.forEach(e => e.draw());
+            bullets.forEach(b => b.draw());
+            player.allies.forEach(ally => ally.draw());
+
+            ctx.font = '80px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 15; ctx.shadowColor = '#00f2ff';
+            ctx.fillText('🚀', player.x, player.y);
+            ctx.shadowBlur = 0;
+
+            if (player.powerUp > 0) {
+                ctx.fillStyle = '#00f2ff'; ctx.font = 'bold 24px Arial';
+                ctx.fillText('⚡️POWER UP: ' + player.powerUp, player.x, player.y + 70);
+            }
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+        gameLoop();
+
+        function endGame() {
+            gameActive = false;
+            canvas.classList.add('hidden');
+            gameUI.classList.add('hidden');
+            players[currentPlayerIndex].score = score;
+            turnResultScreen.classList.remove('hidden');
+            document.getElementById('player-score-msg').textContent = `${players[currentPlayerIndex].name} は ${score}てん！`;
+        }
+
+        // Controls
+        const handleMove = (e) => {
+            if (!gameActive) return;
+            player.targetX = e.touches ? e.touches[0].clientX : e.clientX;
+        };
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
+        window.addEventListener('mousedown', () => isPressing = true);
+        window.addEventListener('mouseup', () => isPressing = false);
+        window.addEventListener('touchstart', (e) => { isPressing = true; handleMove(e); });
+        window.addEventListener('touchend', () => isPressing = false);
+
+        document.getElementById('next-player-btn').onclick = () => {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < playerCount) showReadyScreen();
+            else showFinalRanking();
+        };
+
+        function showFinalRanking() {
+            turnResultScreen.classList.add('hidden');
+            finalScreen.classList.remove('hidden');
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+            const list = document.getElementById('ranking-list');
+            list.innerHTML = '';
+            const medals = ['🥇', '🥈', '🥉', '✨'];
+            sorted.forEach((p, i) => {
+                const row = document.createElement('div');
+                row.className = 'rank-card';
+                row.innerHTML = `
+                    <span class="text-xl font-bold text-cyan-400">${medals[i] || '✨'} ${p.name}</span>
+                    <span class="text-xl font-black text-white">${p.score}てん</span>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        document.getElementById('restart-btn').onclick = () => {
+            finalScreen.classList.add('hidden');
+            modeScreen.classList.remove('hidden');
+        };
+    </script>
+</body>
+
+</html>
