@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./../manifest.json">
+    <link rel="apple-touch-icon" href="./../assets/icons/apple-touch-icon.png">
+    <title>うみの おおきな さかな</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: none;
+            overflow: hidden;
+            background: #0c4a6e;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(to bottom, #0ea5e9 0%, #0c4a6e 100%);
+        }
+
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: rise 12s infinite linear;
+        }
+
+        @keyframes rise {
+            0% {
+                transform: translateY(110vh) scale(1);
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: translateY(-10vh) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        #player {
+            position: absolute;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            will-change: left, top;
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.7));
+        }
+
+        .fish-body {
+            font-size: 40px;
+            transition: font-size 0.3s ease;
+        }
+
+        /* コントローラー（リモコン） */
+        #controller-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #joystick-stick {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+
+        .enemy {
+            position: absolute;
+            will-change: left;
+        }
+
+        .btn-fancy {
+            background: #f59e0b;
+            color: #451a03;
+            font-weight: 900;
+            border-radius: 9999px;
+            box-shadow: 0 6px 0 #b45309;
+            transition: all 0.1s;
+        }
+
+        .btn-fancy:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .grow-pop {
+            position: absolute;
+            color: #fef08a;
+            font-weight: bold;
+            pointer-events: none;
+            animation: grow-up 0.8s ease-out forwards;
+            z-index: 60;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes grow-up {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-40px) scale(1.4);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="m-0 p-0">
+
+    <div id="game-container">
+        <div id="bubble-layer"></div>
+
+        <!-- 人数選択画面 -->
+        <div id="mode-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center z-[200] bg-sky-950 p-6 text-center">
+            <h1 class="text-4xl font-black text-white mb-4">うみの おおきな さかな</h1>
+            <p class="text-sky-300 text-xl mb-10">なんにんで あそぶ？</p>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <button onclick="selectPlayerCount(1)" class="btn-fancy py-6 text-3xl">1にん</button>
+                <button onclick="selectPlayerCount(2)" class="btn-fancy py-6 text-3xl">2にん</button>
+                <button onclick="selectPlayerCount(3)" class="btn-fancy py-6 text-3xl">3にん</button>
+                <button onclick="selectPlayerCount(4)" class="btn-fancy py-6 text-3xl">4にん</button>
+            </div>
+        </div>
+
+        <!-- 名前入力画面 -->
+        <div id="name-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[200] bg-sky-950 p-6 text-center">
+            <h2 class="text-3xl font-black text-white mb-6">なまえを いれてね</h2>
+            <div id="name-inputs" class="w-full max-w-xs mb-8"></div>
+            <button id="confirm-names-btn" class="btn-fancy py-4 px-12 text-2xl">きまり！</button>
+        </div>
+
+        <!-- 準備画面 -->
+        <div id="ready-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[200] bg-sky-900/95 p-6 text-center">
+            <h2 id="turn-title" class="text-4xl font-black text-white mb-6">なまえ の ばん</h2>
+            <div class="bg-white/10 p-8 rounded-3xl border-2 border-white/20 mb-10">
+                <p class="text-white text-xl leading-loose">
+                    せいげんじかんは <span class="text-yellow-300 font-bold">30びょう</span>！<br>
+                    どこまで おおきくなれるかな？
+                </p>
+                <div class="mt-4 text-5xl">🔘 ✨ 🐟</div>
+            </div>
+            <button id="start-btn" class="btn-fancy py-8 px-20 text-4xl">スタート！</button>
+        </div>
+
+        <!-- ゲームUI (iPhone Optimized Header) -->
+        <div id="game-ui"
+            class="fixed top-0 left-0 w-full z-[100] px-4 pt-[calc(env(safe-area-inset-top)+15px)] pointer-events-none">
+            <div
+                class="flex items-center justify-between w-full max-w-lg mx-auto bg-black/60 backdrop-blur-md rounded-2xl p-2 border border-sky-400/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] pointer-events-auto">
+                <a href="./../index.html"
+                    class="bg-sky-800/60 p-2 px-3 rounded-xl border border-sky-800 active:scale-95 transition-all text-xl flex items-center justify-center text-white">🏠</a>
+
+                <div id="game-stats" class="hidden flex items-center gap-6 pr-2 text-white">
+                    <div class="flex flex-col items-center px-4 border-r border-sky-400/50">
+                        <span id="current-player-display"
+                            class="text-[10px] font-bold text-sky-300 truncate max-w-[80px]">PLAYER</span>
+                        <span id="level-display" class="text-xl font-black leading-none">1</span>
+                    </div>
+                    <div class="flex flex-col items-center px-4 border-r border-sky-400/50">
+                        <span class="text-[10px] font-bold text-yellow-400">TIME</span>
+                        <span id="timer-display" class="text-xl font-black leading-none">30</span>
+                    </div>
+                    <div class="flex flex-col items-center px-4">
+                        <span class="text-[10px] font-bold text-sky-300">SCORE</span>
+                        <span id="size-num-display" class="text-xl font-black leading-none">10</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- プレイヤー -->
+        <div id="player" class="hidden">
+            <div id="player-fish" class="fish-body">🐟</div>
+        </div>
+
+        <!-- ジョイスティック -->
+        <div id="controller-zone" class="hidden">
+            <div id="joystick-stick"></div>
+        </div>
+
+        <!-- ターンリザルト -->
+        <div id="turn-result-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[200] bg-slate-900/95 p-6 text-center">
+            <h2 id="result-title" class="text-4xl font-black text-white mb-4">おわり！</h2>
+            <div id="player-score-msg" class="text-white text-2xl mb-12">なまえ の おおきさ: 50</div>
+            <button id="next-player-btn" class="btn-fancy py-5 px-12 text-2xl">つぎの ひと</button>
+        </div>
+
+        <!-- ランキング -->
+        <div id="final-screen"
+            class="hidden absolute inset-0 flex flex-col items-center justify-center z-[200] bg-sky-950 p-6 text-center">
+            <h1 class="text-4xl font-black text-yellow-400 mb-8">🎉 けっかはっぴょう</h1>
+            <div id="ranking-list" class="flex flex-col items-center w-full mb-10"></div>
+            <button id="restart-btn"
+                class="bg-white text-sky-900 font-black py-4 px-10 rounded-full text-xl shadow-lg active:scale-95">
+                さいしょに もどる
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        var container = document.getElementById('game-container');
+        var playerWrap = document.getElementById('player');
+        var playerFish = document.getElementById('player-fish');
+        var controllerZone = document.getElementById('controller-zone');
+        var joystickStick = document.getElementById('joystick-stick');
+
+        var modeScreen = document.getElementById('mode-screen');
+        var nameScreen = document.getElementById('name-screen');
+        var readyScreen = document.getElementById('ready-screen');
+        var turnResultScreen = document.getElementById('turn-result-screen');
+        var finalScreen = document.getElementById('final-screen');
+        var gameUI = document.getElementById('game-ui');
+        var gameStats = document.getElementById('game-stats');
+
+        // --- ゲーム状態変数 ---
+        var playerCount = 1;
+        var players = [];
+        var currentPlayerIndex = 0;
+        var gameActive = false;
+
+        // --- 操作・物理パラメータ ---
+        var playerSize = 40;
+        var internalScore = 10;
+        var pX = window.innerWidth / 2;
+        var pY = window.innerHeight / 2 - 80;
+
+        // 速度と慣性の設定
+        var velX = 0;
+        var velY = 0;
+        var friction = 0.92;
+        var accel = 0.35;
+        var maxSpeed = 3.5;
+        var deadzone = 8;
+
+        // ジョイスティック状態
+        var isTouching = false;
+        var stickX = 0;
+        var stickY = 0;
+        var maxStickDist = 55;
+
+        var enemies = [];
+        var timeLeft = 30;
+        var timerInterval;
+        var spawnInterval;
+
+        var fishEmojis = ['🐠', '🐡', '🐙', '🦐', '🦀', '🦑'];
+        var evolutionEmojis = ['🐟', '🐬', '🐳', '🐋'];
+
+        function initBubbles() {
+            var layer = document.getElementById('bubble-layer');
+            for (var i = 0; i < 8; i++) {
+                var b = document.createElement('div');
+                b.className = 'bubble';
+                var s = Math.random() * 15 + 10;
+                b.style.width = s + 'px'; b.style.height = s + 'px';
+                b.style.left = Math.random() * 100 + '%';
+                b.style.animationDuration = (Math.random() * 5 + 8) + 's';
+                layer.appendChild(b);
+            }
+        }
+
+        function selectPlayerCount(count) {
+            playerCount = count;
+            modeScreen.classList.add('hidden');
+            nameScreen.classList.remove('hidden');
+            var inputs = document.getElementById('name-inputs');
+            inputs.innerHTML = '';
+            for (var i = 1; i <= count; i++) {
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'bg-white/10 border-2 border-sky-400 text-white p-4 rounded-xl w-full mb-3 text-xl outline-none text-center';
+                input.value = `プレイヤー${i}`;
+                input.id = `p${i}-name`;
+                inputs.appendChild(input);
+            }
+        }
+
+        document.getElementById('confirm-names-btn').onclick = function () {
+            players = [];
+            for (var i = 1; i <= playerCount; i++) {
+                var inputVal = document.getElementById(`p${i}-name`).value;
+                players.push({ name: inputVal || `${i}にんめ`, score: 0 });
+            }
+            currentPlayerIndex = 0;
+            nameScreen.classList.add('hidden');
+            showReadyScreen();
+        };
+
+        function showReadyScreen() {
+            turnResultScreen.classList.add('hidden');
+            readyScreen.classList.remove('hidden');
+            document.getElementById('turn-title').textContent = `${players[currentPlayerIndex].name} の ばん`;
+        }
+
+        document.getElementById('start-btn').onclick = function () {
+            readyScreen.classList.add('hidden');
+            gameStats.classList.remove('hidden');
+            playerWrap.classList.remove('hidden');
+            controllerZone.classList.remove('hidden');
+            document.getElementById('current-player-display').textContent = players[currentPlayerIndex].name;
+            startGame();
+        };
+
+        function startGame() {
+            playerSize = 40;
+            internalScore = 10;
+            timeLeft = 30;
+            document.getElementById('timer-display').textContent = timeLeft;
+            enemies.forEach(function (e) { e.el.remove(); });
+            enemies = [];
+            gameActive = true;
+
+            pX = window.innerWidth / 2;
+            pY = window.innerHeight / 2 - 80;
+            velX = 0; velY = 0;
+            stickX = 0; stickY = 0;
+            updateJoystickVisual();
+            updatePlayerVisual();
+
+            if (spawnInterval) clearInterval(spawnInterval);
+            if (timerInterval) clearInterval(timerInterval);
+
+            spawnInterval = setInterval(spawnFish, 1400);
+            timerInterval = setInterval(function () {
+                timeLeft--;
+                document.getElementById('timer-display').textContent = timeLeft;
+                if (timeLeft <= 0) gameOver("タイムアップ！");
+            }, 1000);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updatePlayerVisual() {
+            playerFish.style.fontSize = playerSize + 'px';
+            document.getElementById('size-num-display').textContent = Math.floor(internalScore);
+
+            var level = 1;
+            if (internalScore >= 200) { level = 4; playerFish.textContent = evolutionEmojis[3]; }
+            else if (internalScore >= 100) { level = 3; playerFish.textContent = evolutionEmojis[2]; }
+            else if (internalScore >= 40) { level = 2; playerFish.textContent = evolutionEmojis[1]; }
+            else { level = 1; playerFish.textContent = evolutionEmojis[0]; }
+            document.getElementById('level-display').textContent = level;
+        }
+
+        function spawnFish() {
+            if (!gameActive) return;
+            var isSmall = Math.random() < 0.75;
+            var size = isSmall ? playerSize * (0.35 + Math.random() * 0.4) : playerSize * (1.1 + Math.random() * 0.6);
+            var side = Math.random() > 0.5 ? 'left' : 'right';
+            var x = side === 'left' ? -120 : window.innerWidth + 120;
+            var y = Math.random() * (window.innerHeight - 280) + 60;
+            var speed = 0.8 + Math.random() * 1.2;
+
+            var el = document.createElement('div');
+            el.className = 'enemy absolute flex items-center justify-center';
+            el.textContent = size > 160 ? '🦈' : fishEmojis[Math.floor(Math.random() * fishEmojis.length)];
+            el.style.fontSize = size + 'px';
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            if (side === 'right') el.style.transform = 'scaleX(-1)';
+
+            container.appendChild(el);
+            enemies.push({ el: el, x: x, y: y, size: size, speed: speed, side: side });
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            if (isTouching) {
+                if (Math.abs(stickX) > deadzone) velX += (stickX / maxStickDist) * accel;
+                if (Math.abs(stickY) > deadzone) velY += (stickY / maxStickDist) * accel;
+            }
+
+            velX *= friction;
+            velY *= friction;
+
+            var currentSpeed = Math.sqrt(velX * velX + velY * velY);
+            if (currentSpeed > maxSpeed) {
+                var ratio = maxSpeed / currentSpeed;
+                velX *= ratio;
+                velY *= ratio;
+            }
+
+            pX += velX;
+            pY += velY;
+
+            if (pX < playerSize / 2) { pX = playerSize / 2; velX *= -0.5; }
+            if (pX > window.innerWidth - playerSize / 2) { pX = window.innerWidth - playerSize / 2; velX *= -0.5; }
+            if (pY < playerSize / 2) { pY = playerSize / 2; velY *= -0.5; }
+            if (pY > window.innerHeight - 200) { pY = window.innerHeight - 200; velY *= -0.5; }
+
+            if (velX < -0.5) playerWrap.style.transform = 'scaleX(-1)';
+            else if (velX > 0.5) playerWrap.style.transform = 'scaleX(1)';
+
+            playerWrap.style.left = (pX - playerSize / 2) + 'px';
+            playerWrap.style.top = (pY - playerSize / 2) + 'px';
+
+            for (var i = enemies.length - 1; i >= 0; i--) {
+                var e = enemies[i];
+                if (e.side === 'left') e.x += e.speed; else e.x -= e.speed;
+                e.el.style.left = e.x + 'px';
+
+                var dx = pX - (e.x + e.size / 2);
+                var dy = pY - (e.y + e.size / 2);
+                var dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < (playerSize * 0.45 + e.size * 0.45)) {
+                    if (playerSize >= e.size * 0.85) {
+                        internalScore += Math.floor(e.size / 4);
+                        playerSize += e.size * 0.07;
+                        showGrowPop(pX, pY);
+                        updatePlayerVisual();
+                        e.el.remove();
+                        enemies.splice(i, 1);
+                    } else {
+                        gameOver("たべられちゃった！");
+                    }
+                }
+                if (e && e.el && (e.x < -300 || e.x > window.innerWidth + 300)) {
+                    e.el.remove();
+                    enemies.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showGrowPop(x, y) {
+            var pop = document.createElement('div');
+            pop.className = 'grow-pop';
+            pop.style.left = (x - 30) + 'px';
+            pop.style.top = (y - 30) + 'px';
+            pop.textContent = 'パクッ！';
+            container.appendChild(pop);
+            setTimeout(function () { if (pop.parentNode) pop.remove(); }, 800);
+        }
+
+        function gameOver(msg) {
+            if (!gameActive) return;
+            gameActive = false;
+            if (spawnInterval) clearInterval(spawnInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            playerWrap.classList.add('hidden');
+            gameStats.classList.add('hidden');
+            controllerZone.classList.add('hidden');
+
+            var finalScore = Math.floor(internalScore);
+            players[currentPlayerIndex].score = finalScore;
+
+            turnResultScreen.classList.remove('hidden');
+            document.getElementById('result-title').textContent = msg;
+            document.getElementById('player-score-msg').textContent = `${players[currentPlayerIndex].name} の おおきさ: ${finalScore}`;
+        }
+
+        document.getElementById('next-player-btn').onclick = function () {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < playerCount) showReadyScreen();
+            else showFinalRanking();
+        };
+
+        function showFinalRanking() {
+            turnResultScreen.classList.add('hidden');
+            finalScreen.classList.remove('hidden');
+            var sorted = players.slice().sort(function (a, b) { return b.score - a.score; });
+            var list = document.getElementById('ranking-list');
+            list.innerHTML = '';
+            var medals = ['🥇', '🥈', '🥉', '✨'];
+            sorted.forEach(function (p, i) {
+                var div = document.createElement('div');
+                div.className = 'flex justify-between items-center w-full max-w-xs bg-white/10 p-5 rounded-2xl mb-4 border border-white/20';
+                div.innerHTML = `
+                    <span class="text-2xl font-bold text-white">${medals[i] || '🐟'} ${p.name}</span>
+                    <span class="text-3xl font-black text-yellow-300">${p.score}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        document.getElementById('restart-btn').onclick = function () {
+            finalScreen.classList.add('hidden');
+            modeScreen.classList.remove('hidden');
+        };
+
+        var handleJoystick = function (e) {
+            if (!gameActive) return;
+            var touch = e.touches ? e.touches[0] : e;
+            var rect = controllerZone.getBoundingClientRect();
+            var centerX = rect.left + rect.width / 2;
+            var centerY = rect.top + rect.height / 2;
+            var dx = touch.clientX - centerX;
+            var dy = touch.clientY - centerY;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > maxStickDist) {
+                dx = dx * (maxStickDist / dist);
+                dy = dy * (maxStickDist / dist);
+            }
+            stickX = dx; stickY = dy;
+            updateJoystickVisual();
+        };
+
+        function updateJoystickVisual() {
+            joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
+        }
+
+        controllerZone.addEventListener('touchstart', function (e) { isTouching = true; handleJoystick(e); }, { passive: false });
+        window.addEventListener('touchmove', function (e) { if (isTouching) { e.preventDefault(); handleJoystick(e); } }, { passive: false });
+        window.addEventListener('touchend', function () { isTouching = false; stickX = 0; stickY = 0; updateJoystickVisual(); });
+
+        controllerZone.addEventListener('mousedown', function (e) { isTouching = true; handleJoystick(e); });
+        window.addEventListener('mousemove', function (e) { if (isTouching) handleJoystick(e); });
+        window.addEventListener('mouseup', function () { isTouching = false; stickX = 0; stickY = 0; updateJoystickVisual(); });
+
+        initBubbles();
+    </script>
+</body>
+
+</html>
