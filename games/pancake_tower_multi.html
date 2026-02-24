@@ -34,6 +34,10 @@
             justify-content: center;
             z-index: 10;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+            will-change: transform;
+            backface-visibility: hidden;
+            transform: translateZ(0);
+            /* Force GPU */
         }
 
         .pancake {
@@ -357,7 +361,7 @@
             };
 
             // 初期位置を反映
-            el.style.left = startX + 'px';
+            el.style.transform = `translateX(${startX}px)`;
             stackArea.appendChild(el);
             updatePreview();
         }
@@ -374,7 +378,7 @@
                     currentItem.x = 0;
                     direction = 1;
                 }
-                currentItem.el.style.left = currentItem.x + 'px';
+                currentItem.el.style.transform = `translateX(${currentItem.x}px)`;
             }
             requestAnimationFrame(gameLoop);
         }
